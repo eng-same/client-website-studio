@@ -49,7 +49,7 @@ Never add a remote and never push. Client files must never leave this computer t
 
 Only when the marketer asks:
 
-1. Update `.studio-kit/` (`git -C .studio-kit pull`, or download the `stable` ZIP again).
+1. Update `.studio-kit/` (`git -C .studio-kit pull`, or download the `main` ZIP again).
 2. Replace both skill copies from `.studio-kit/skills/client-website-studio/`.
 3. Do not touch `site/`, `client/` or any other project file.
 4. Record the new kit version in `PROJECT-STATUS.md`, and tell the marketer in one line what changed according to `.studio-kit/CHANGELOG.md`.

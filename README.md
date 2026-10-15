@@ -20,11 +20,11 @@ A kit for marketing teams who build bilingual Arabic/English company websites wi
 مشروع موقع جديد للعميل: [اسم الشركة]
 
 ١. حمّل عدّة الاستوديو إلى هذا المجلد بهذا الأمر:
-git clone --depth 1 --branch stable https://github.com/eng-same/client-website-studio.git .studio-kit
+git clone --depth 1 --branch main https://github.com/eng-same/client-website-studio.git .studio-kit
 ثم اقرأ الملف .studio-kit/START.md ونفّذ ما فيه بالترتيب.
 
 ٢. إن لم ينجح التحميل، توقّف واطلب مني تنزيل هذا الملف ووضعه في هذا المجلد، ثم فكّه أنت باسم .studio-kit وأكمل:
-https://github.com/eng-same/client-website-studio/archive/refs/heads/stable.zip
+https://github.com/eng-same/client-website-studio/archive/refs/heads/main.zip
 
 ٣. كلّمني بالعربية وبكلمات بسيطة، سؤالاً واحداً في كل مرة.
 لا تطلب مني أي كلمة مرور، ولا تنشر أي شيء دون موافقتي الصريحة.
@@ -36,12 +36,12 @@ The same prompt in English:
 New website project for client: [Company name]
 
 1. Get the studio kit into this folder:
-git clone --depth 1 --branch stable https://github.com/eng-same/client-website-studio.git .studio-kit
+git clone --depth 1 --branch main https://github.com/eng-same/client-website-studio.git .studio-kit
 Then read .studio-kit/START.md and follow it in order.
 
 2. If the download fails, stop and ask me to download this file into this folder,
 then unpack it yourself as .studio-kit and continue:
-https://github.com/eng-same/client-website-studio/archive/refs/heads/stable.zip
+https://github.com/eng-same/client-website-studio/archive/refs/heads/main.zip
 
 3. Talk to me in plain words, one question at a time.
 Never ask me for a password, and never publish anything without my explicit approval.
@@ -95,9 +95,8 @@ The audit reads source files only. It does not prove mobile layout, accessibilit
 1. Work on `main` and run `python3 tests/test_scripts.py`.
 2. Try the change on one sample or real client.
 3. Update `VERSION`, the `version` in `SKILL.md` and `CHANGELOG.md`.
-4. Move `stable` to the tested commit: `git push origin main:stable`.
 
-Marketers always download `stable`. Existing projects keep their version until someone asks the agent «حدّث العدّة». Every marketer's agent follows `START.md` from `stable`, so protect that branch and keep two-factor authentication on the account.
+Marketers always download `main`. Existing projects keep their version until someone asks the agent «حدّث العدّة». Every marketer's agent follows `START.md` from `main`, so protect that branch and keep two-factor authentication on the account.
 
 ## Rules for this public repo
 
