@@ -64,6 +64,8 @@ Every client folder contains `START-HERE.md` in Arabic with ready-made prompts. 
 
 **Local preview.** After every build the agent starts the preview on your own computer (`http://127.0.0.1:8080`) without asking, so you can open it straight away. It is only reachable from your computer.
 
+**Starting a new client?** Copy the ready-made prompt from [STARTING-PROMPT.md](STARTING-PROMPT.md) and fill in the client's answers.
+
 ## What is in this repo
 
 ```text
