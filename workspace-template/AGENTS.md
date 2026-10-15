@@ -7,3 +7,4 @@ This folder is one client's website project, run by a non-technical marketer.
 3. Talk to the marketer in Arabic, in plain words, one decision at a time. Never show code unless they ask.
 4. Never ask for passwords. Never publish anything without explicit approval.
 5. Update `PROJECT-STATUS.md` after every stage and every review round.
+6. When you finish any work that changes the site, rebuild the preview, start the local preview server yourself without asking, and send the marketer the localhost link. They cannot run commands.

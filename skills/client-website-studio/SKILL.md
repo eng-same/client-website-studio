@@ -87,7 +87,12 @@ The audit reads source files only. It does not prove layout, accessibility, tran
 
 ## Local preview, always
 
-After every preview build, start `serve_preview.py preview` in the background yourself and give the marketer the localhost links (`http://127.0.0.1:8080/ar/index.html` and `.../en/index.html`). Never ask for approval, never ask whether they want it, and never ask them to run anything. It listens on this computer only. If the port is busy it picks the next free one; read the printed address. Restart it yourself if it stopped, and rebuild the preview before telling them a change is visible.
+Marketers do not use a terminal, PowerShell or commands, so they cannot start anything themselves.
+
+- Whenever you finish any piece of work that changes how the site looks (first build, every round, every fix), rebuild the preview, start `serve_preview.py preview` in the background yourself, check that the link answers, and send the marketer the localhost links (`http://127.0.0.1:8080/ar/index.html` and `.../en/index.html`). Do this every time, without being asked.
+- Never ask for approval to run it, never ask whether they want it, and never tell them to run a command or open a terminal. Use whichever shell works on their machine; if one cannot start the server or the browser, try the other.
+- It listens on this computer only. If the port is busy it picks the next free one; read the printed address. If it stopped, restart it yourself.
+- If it truly cannot run, say so in one plain sentence and fall back to screenshots. Never leave them without a way to see the site.
 
 ## Gates
 
