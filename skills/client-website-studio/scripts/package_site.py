@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""Build a release ZIP or a Review Mode preview from a static site folder.
+
+Release:  package_site.py site handover/example-ly-20261015.zip --approval "Client OK on WhatsApp, 15 Oct"
+          Runs the release audit first and refuses to build if it fails.
+          Writes the ZIP (index.html at its root) and a .json record next to it.
+
+Preview:  package_site.py site preview --preview --label "نسخة 3"
+          package_site.py site handover/preview-client.zip --preview --label "نسخة 3"
+          Copies the site, adds Review Mode and a noindex tag to every page.
+          The site folder itself is never changed.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import re
+import shutil
+import sys
+import zipfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.dont_write_bytecode = True  # keep client folders free of __pycache__
+sys.path.insert(0, str(HERE))
+from audit_site import audit, format_report, utf8_stdout  # noqa: E402
+
+REVIEW_JS = HERE.parent / 'assets' / 'review-mode.js'
+PREVIEW_MARK = '.review-preview'
+FIXED_TIME = (2020, 1, 1, 0, 0, 0)
+ALLOWED_EXT = {'.html', '.htm', '.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif',
+               '.ico', '.woff', '.woff2', '.ttf', '.otf', '.txt', '.xml', '.webmanifest', '.pdf', '.json',
+               '.mp4', '.webm'}
+SKIP_DIRS = {'.git', '.svn', 'node_modules', '__pycache__', '.idea', '.vscode'}
+SKIP_NAMES = {'.DS_Store', 'Thumbs.db', 'desktop.ini'}
+SKIP_EXT = {'.md', '.log', '.bak', '.tmp', '.zip', '.map'}
+
+
+def collect(site: Path) -> tuple[list[Path], list[str], list[str]]:
+    """Return (files to ship, skipped notes, blocking problems)."""
+    files, skipped, problems = [], [], []
+    for path in sorted(site.rglob('*')):
+        rel = path.relative_to(site)
+        if path.is_symlink():
+            problems.append(f'Symbolic link not supported: {rel.as_posix()}')
+            continue
+        if not path.is_file():
+            continue
+        if any(part in SKIP_DIRS for part in rel.parts) or path.name in SKIP_NAMES:
+            continue
+        if any(part.startswith('.') for part in rel.parts):
+            skipped.append(f'{rel.as_posix()} (hidden file)')
+            continue
+        if path.suffix.lower() in SKIP_EXT:
+            skipped.append(f'{rel.as_posix()} (not a website file)')
+            continue
+        if path.suffix.lower() not in ALLOWED_EXT:
+            problems.append(f'Unexpected file type, review it manually: {rel.as_posix()}')
+            continue
+        files.append(path)
+    return files, skipped, problems
+
+
+def inject_review_mode(html: str, label: str, script: str) -> str:
+    meta = '<meta name="robots" content="noindex, nofollow">'
+    config = json.dumps({'label': label}, ensure_ascii=False).replace('<', '\\u003c')
+    block = (f'<script data-review-mode>window.__REVIEW_MODE__={config};</script>\n'
+             f'<script data-review-mode>\n{script}\n</script>\n')
+    head_end = re.search(r'</head\s*>', html, re.I)
+    html = html[:head_end.start()] + meta + '\n' + html[head_end.start():] if head_end else meta + '\n' + html
+    body_end = None
+    for body_end in re.finditer(r'</body\s*>', html, re.I):
+        pass
+    if body_end:
+        return html[:body_end.start()] + block + html[body_end.start():]
+    return html + '\n' + block
+
+
+def file_bytes(path: Path, preview: bool, label: str, script: str) -> bytes:
+    if preview and path.suffix.lower() in ('.html', '.htm'):
+        text = path.read_text(encoding='utf-8-sig', errors='replace')
+        return inject_review_mode(text, label, script).encode('utf-8')
+    return path.read_bytes()
+
+
+def write_zip(out: Path, site: Path, files: list[Path], preview: bool, label: str, script: str) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for path in files:
+            info = zipfile.ZipInfo(path.relative_to(site).as_posix(), date_time=FIXED_TIME)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, file_bytes(path, preview, label, script))
+
+
+def write_folder(out: Path, site: Path, files: list[Path], label: str, script: str) -> None:
+    if out.exists():
+        if not out.is_dir():
+            raise SystemExit(f'Output exists and is not a folder: {out}')
+        if any(out.iterdir()) and not (out / PREVIEW_MARK).is_file():
+            raise SystemExit(f'Refusing to replace {out}: it is not empty and was not made by this script')
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    for path in files:
+        target = out / path.relative_to(site)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(file_bytes(path, True, label, script))
+    (out / PREVIEW_MARK).write_text('Generated by package_site.py --preview. Safe to delete.\n', encoding='utf-8')
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        for chunk in iter(lambda: handle.read(1 << 16), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def main() -> None:
+    utf8_stdout()
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('site', type=Path, help='folder containing index.html')
+    parser.add_argument('output', type=Path, help='a .zip file, or (with --preview) a folder')
+    parser.add_argument('--preview', action='store_true', help='build a Review Mode preview instead of a release')
+    parser.add_argument('--label', default='', help='version label shown in Review Mode, e.g. "نسخة 3"')
+    parser.add_argument('--approval', default='', help='release only: who approved the content, when and how')
+    args = parser.parse_args()
+
+    site = args.site.resolve()
+    out = args.output.resolve()
+    if not (site / 'index.html').is_file():
+        parser.error('the site folder must contain index.html at its root')
+    if out == site or site in out.parents:
+        parser.error('the output must be outside the site folder')
+    is_zip = out.suffix.lower() == '.zip'
+    if not args.preview and not is_zip:
+        parser.error('a release must be a .zip file')
+    if not args.preview and not args.approval.strip():
+        parser.error('a release needs --approval "who approved the content, when and how"')
+
+    mode = 'preview' if args.preview else 'release'
+    result = audit(site, mode)
+    if result['errors']:
+        print(format_report(result))
+        raise SystemExit(f'\nNot packaged: fix the {len(result["errors"])} audit error(s) above first.')
+
+    files, skipped, problems = collect(site)
+    if problems:
+        raise SystemExit('Not packaged:\n  ' + '\n  '.join(problems))
+
+    script = ''
+    if args.preview:
+        if not REVIEW_JS.is_file():
+            raise SystemExit(f'Review Mode script not found: {REVIEW_JS}')
+        script = REVIEW_JS.read_text(encoding='utf-8')
+        if re.search(r'</script', script, re.I):
+            raise SystemExit('review-mode.js must not contain a closing script tag')
+
+    if is_zip:
+        write_zip(out, site, files, args.preview, args.label, script)
+    else:
+        write_folder(out, site, files, args.label, script)
+
+    total = sum(p.stat().st_size for p in files)
+    print(f'{mode.capitalize()} built: {out}')
+    print(f'  {len(files)} files, {total / 1024:.0f} KB of website files'
+          f'; audit {result["status"]} with {len(result["warnings"])} warning(s)')
+    for note in skipped:
+        print(f'  skipped {note}')
+
+    if is_zip:
+        checksum = sha256(out)
+        print(f'  sha256 {checksum}')
+        if not args.preview:
+            record = {
+                'zip': out.name,
+                'sha256': checksum,
+                'built': dt.datetime.now().astimezone().isoformat(timespec='seconds'),
+                'approval': args.approval.strip(),
+                'files': [p.relative_to(site).as_posix() for p in files],
+                'audit': {'status': result['status'], 'warnings': result['warnings']},
+            }
+            record_path = out.with_suffix('.json')
+            record_path.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding='utf-8')
+            print(f'  record {record_path.name}')
+            print('Next: confirm the upload folder with the host, back up any existing site, then publish.')
+        else:
+            print('Next: upload to the client\'s password-protected preview folder on the agency hosting.')
+    else:
+        print(f'Next: open {out / "ar" / "index.html"} (or index.html) in a browser.')
+
+
+if __name__ == '__main__':
+    main()

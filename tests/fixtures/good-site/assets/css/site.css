@@ -1,0 +1,18 @@
+:root {
+  --ink: #1d2a33;
+  --paper: #fbfaf7;
+  --accent: #9a4a1c;
+  --space: 1rem;
+  --font: system-ui, "Segoe UI", Tahoma, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font); color: var(--ink); background: var(--paper); line-height: 1.6; }
+img { max-width: 100%; height: auto; }
+header, main > section, footer { padding: calc(var(--space) * 2) var(--space); }
+header { display: flex; flex-wrap: wrap; gap: var(--space); justify-content: space-between; }
+nav { display: flex; gap: var(--space); }
+a { color: var(--accent); }
+.hero { background: url(../images/pattern.svg) repeat; }
+.skip { position: absolute; inset-inline-start: -999px; }
+.skip:focus { inset-inline-start: var(--space); }
