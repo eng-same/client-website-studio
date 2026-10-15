@@ -6,6 +6,7 @@ Marketers always download the `stable` branch. Existing client projects keep the
 
 - **Review Mode removed.** Previews no longer carry a toolbar; feedback is given as plain notes or screenshots. `--label` is gone.
 - **Local preview by default.** New `serve_preview.py`; the agent always serves the preview on localhost without asking for approval.
+- **check_layout.py:** measures sideways overflow of every page at six widths in headless Edge/Chrome.
 - Design rules: required rich footer with contact icons, polished buttons, and a distinctive language switch.
 
 ## 2.0.0 — 2026-10-15

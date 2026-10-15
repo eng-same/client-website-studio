@@ -208,5 +208,29 @@ class RepoTests(unittest.TestCase):
         self.assertTrue((skill_dir / 'scripts' / 'serve_preview.py').is_file())
 
 
+class LayoutCheckTests(unittest.TestCase):
+    def run_check(self, body):
+        import tempfile
+        sys.path.insert(0, str(REPO / 'skills' / 'client-website-studio' / 'scripts'))
+        import check_layout
+        if not check_layout.find_browser():
+            self.skipTest('no Edge/Chrome installed')
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / 'index.html').write_text('<!doctype html><meta name=viewport content="width=device-width"><body>' + body, encoding='utf-8')
+        before = sorted(p.name for p in tmp.iterdir())
+        result = subprocess.run([sys.executable, str(REPO / 'skills' / 'client-website-studio' / 'scripts' / 'check_layout.py'), str(tmp)],
+                                capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(sorted(p.name for p in tmp.iterdir()), before, 'check must not write into the site folder')
+        if result.returncode == 2:
+            self.skipTest('browser could not run here')
+        return result
+
+    def test_detects_overflow(self):
+        self.assertEqual(self.run_check('<div style="width:900px;height:20px">x</div>').returncode, 1)
+
+    def test_passes_clean_page(self):
+        self.assertEqual(self.run_check('<p>hello</p>').returncode, 0)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

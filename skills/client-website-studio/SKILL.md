@@ -77,6 +77,8 @@ python3 <skill>/scripts/package_site.py site handover/preview-CLIENT.zip --previ
     preview ZIP for the agency's password-protected preview folder
 python3 <skill>/scripts/serve_preview.py preview
     serves the preview on http://127.0.0.1:8080 (this computer only), run in the background
+python3 <skill>/scripts/check_layout.py preview
+    measures sideways overflow of every page at 320-1440 px; run after every preview build and fix every failure
 python3 <skill>/scripts/package_site.py site handover/DOMAIN-YYYYMMDD.zip --approval "who approved, when, how"
     release ZIP; refuses to build if the release audit fails
 ```
@@ -89,7 +91,7 @@ After every preview build, start `serve_preview.py preview` in the background yo
 
 ## Gates
 
-- **Ready for client preview:** preview-mode audit passes, both languages exist, every `[[NEEDS]]` marker is listed for the marketer, and browser review is done or its absence disclosed.
+- **Ready for client preview:** preview-mode audit passes, `check_layout.py` reports no overflow (or its absence is disclosed), both languages exist, every `[[NEEDS]]` marker is listed for the marketer, and browser review is done or its absence disclosed.
 - **Ready for release:** client approval recorded, release audit passes, browser review done or disclosed, upload folder confirmed with the host, and a backup or rollback plan agreed.
 
 A missing tool never counts as a pass.
