@@ -80,10 +80,6 @@ class AuditTests(SiteCase):
         self.assertIn('Broken local reference', errors)
         self.assertIn('no alt', errors)
 
-    def test_review_mode_in_source_is_an_error(self):
-        self.edit('ar/index.html', '</body>', '<script data-review-mode></script></body>')
-        self.assertIn('Review Mode', problems(audit(self.site, 'preview'), 'errors'))
-
     def test_contact_link_checks(self):
         self.edit('en/index.html', 'tel:+218911234567', 'tel:0911234567')
         self.edit('en/index.html', 'https://wa.me/218911234567', 'https://wa.me/+218911234567')
@@ -138,7 +134,6 @@ class PackageTests(SiteCase):
         self.assertIn('index.html', names)
         self.assertIn('ar/index.html', names)
         self.assertNotIn('notes.md', names)
-        self.assertFalse(any('review' in n.lower() for n in names))
         record = json.loads(out.with_suffix('.json').read_text(encoding='utf-8'))
         self.assertEqual(record['approval'], 'Client OK on WhatsApp')
         self.assertEqual(len(record['sha256']), 64)
@@ -158,16 +153,14 @@ class PackageTests(SiteCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(out.exists())
 
-    def test_preview_folder_injects_review_mode_without_touching_site(self):
+    def test_preview_folder_adds_noindex_without_touching_site(self):
         self.edit('ar/index.html', '<li>النقل داخل بنغازي</li>', '<li>[[NEEDS: ساعات العمل]]</li>')
         before = (self.site / 'ar' / 'index.html').read_text(encoding='utf-8')
         out = self.tmp / 'preview'
-        result = self.package(str(out), '--preview', '--label', 'نسخة 2')
+        result = self.package(str(out), '--preview')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         html = (out / 'ar' / 'index.html').read_text(encoding='utf-8')
-        self.assertIn('data-review-mode', html)
         self.assertIn('noindex', html)
-        self.assertIn('نسخة 2', html)
         self.assertEqual((self.site / 'ar' / 'index.html').read_text(encoding='utf-8'), before)
         rebuild = self.package(str(out), '--preview')
         self.assertEqual(rebuild.returncode, 0, rebuild.stderr)
@@ -212,11 +205,7 @@ class RepoTests(unittest.TestCase):
                     'references/publishing.md', 'references/handover.md', 'assets/brief-template.md'):
             self.assertIn(rel.split('/')[-1], text)
             self.assertTrue((skill_dir / rel).is_file(), rel)
-        self.assertTrue((skill_dir / 'assets' / 'review-mode.js').is_file())
-
-    def test_review_mode_has_no_closing_script_tag(self):
-        js = (REPO / 'skills' / 'client-website-studio' / 'assets' / 'review-mode.js').read_text(encoding='utf-8')
-        self.assertNotIn('</script', js.lower())
+        self.assertTrue((skill_dir / 'scripts' / 'serve_preview.py').is_file())
 
 
 if __name__ == '__main__':

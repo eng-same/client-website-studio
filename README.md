@@ -57,12 +57,12 @@ Every client folder contains `START-HERE.md` in Arabic with ready-made prompts. 
 | --- | --- |
 | Coming back to a project | كمّل المشروع. اقرأ PROJECT-STATUS.md أولاً وقل لي أين وصلنا وما الخطوة التالية. |
 | New files from the client | وضعت ملفات جديدة في client/inbox، حدّث البيانات وقل لي ما الذي ينقص. |
-| Feedback on the design | Written notes, a marked-up screenshot, or the Review Mode notes list |
+| Feedback on the design | Written notes or a marked-up screenshot |
 | Going back | ارجع للنسخة 3. |
 | Client preview | جهّز ملف المعاينة للعميل. |
 | Publishing | العميل وافق (من، متى، وكيف). جهّز الموقع للنشر وأرشدني خطوة بخطوة. |
 
-**Review Mode** is a small toolbar that appears only in previews. Anyone can click a part of the page to leave a note, or edit text directly on the page, then copy the notes into the chat or send them on WhatsApp. The toolbar is never included in the live site.
+**Local preview.** After every build the agent starts the preview on your own computer (`http://127.0.0.1:8080`) without asking, so you can open it straight away. It is only reachable from your computer.
 
 ## What is in this repo
 
@@ -72,7 +72,7 @@ VERSION, CHANGELOG.md
 skills/client-website-studio/  the Agent Skill
   SKILL.md
   references/                  intake, design, build, languages, review rounds, quality, publishing, handover
-  assets/                      brief template, Review Mode script
+  assets/                      brief template
   scripts/                     audit_site.py, package_site.py (Python standard library only)
 workspace-template/            files copied into every new client folder
 tests/                         sample site and script tests
@@ -83,7 +83,7 @@ tests/                         sample site and script tests
 ```text
 python3 skills/client-website-studio/scripts/audit_site.py path/to/site --mode preview
 python3 skills/client-website-studio/scripts/audit_site.py path/to/site
-python3 skills/client-website-studio/scripts/package_site.py path/to/site preview --preview --label "نسخة 3"
+python3 skills/client-website-studio/scripts/package_site.py path/to/site preview --preview
 python3 skills/client-website-studio/scripts/package_site.py path/to/site out/domain-20261015.zip --approval "who, when, how"
 python3 tests/test_scripts.py
 ```

@@ -2,6 +2,12 @@
 
 Marketers always download the `stable` branch. Existing client projects keep the version they started with until someone asks the agent to «حدّث العدّة».
 
+## 2.1.0 — 2026-10-16
+
+- **Review Mode removed.** Previews no longer carry a toolbar; feedback is given as plain notes or screenshots. `--label` is gone.
+- **Local preview by default.** New `serve_preview.py`; the agent always serves the preview on localhost without asking for approval.
+- Design rules: required rich footer with contact icons, polished buttons, and a distinctive language switch.
+
 ## 2.0.0 — 2026-10-15
 
 - **One-paste start.** `START.md` sets up each client folder from the `stable` branch: installs the skill for Claude (`.claude/skills`) and for Codex, Antigravity and other agents (`.agents/skills`), creates the folder layout, and makes the first local save point. Returning projects resume from `PROJECT-STATUS.md`.

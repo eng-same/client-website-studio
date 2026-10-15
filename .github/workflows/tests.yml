@@ -16,4 +16,3 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python tests/test_scripts.py
-      - run: node --check skills/client-website-studio/assets/review-mode.js

@@ -32,3 +32,10 @@ Before building, write a short internal design rationale in `PROJECT-STATUS.md` 
 ## External design skills
 
 UI UX Pro Max, the frontend-design plugin and Vercel's web design guidelines (links in `SKILL.md`) are useful for ideas. If any of them pushes Tailwind, React, libraries or heavy animation, ignore that part and take only the design advice.
+
+## Footer, buttons and language switch
+
+- **Footer.** Never a single line of text. Build a proper footer: company name as text (or the logo when supplied), the short description, quick links to the sections, and a contact column with an icon for each way to reach the company (phone, WhatsApp, address, and email or social accounts only when confirmed). Draw icons as small inline SVG (stroke style, 20–24px, `aria-hidden`, with a text label beside each); never use icon-only controls, never use a brand logo as an icon unless the account is real, and never invent accounts. Add the language link and the copyright line.
+- **Buttons.** Make them feel finished: a clear primary and secondary style, an icon beside the label (WhatsApp, phone), generous padding, a subtle hover and pressed state, a visible focus ring, and about 48px height. Not flat grey boxes.
+- **Language switch.** Avoid a plain bordered "English" link. Design it as part of the brand: for example a two-segment control showing both languages (`ع | EN`) with the current one highlighted, or a compact pill with a globe icon and the other language's name in its own script. It stays a real link to the equivalent page, works by keyboard, and has an accessible label.
+- **Innovation.** Push the layout beyond a stack of centred sections: use one signature visual idea built from CSS/SVG that relates to the business (for example a plan, a grid or a catalogue index), asymmetric compositions, and a strong scale contrast in type. Keep it fast and accessible.

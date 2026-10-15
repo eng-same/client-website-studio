@@ -1,9 +1,9 @@
 ---
 name: client-website-studio
-description: Builds, reviews and packages lightweight bilingual Arabic/English company websites in plain HTML, CSS and vanilla JavaScript for client-owned Libyan Spider cPanel hosting, while guiding non-technical marketing staff in plain language. Use when a marketer starts a new client website, continues one ("كمّل"), sends design feedback or Review Mode notes, asks for a client preview, or prepares a site for publishing and handover.
+description: Builds, reviews and packages lightweight bilingual Arabic/English company websites in plain HTML, CSS and vanilla JavaScript for client-owned Libyan Spider cPanel hosting, while guiding non-technical marketing staff in plain language. Use when a marketer starts a new client website, continues one ("كمّل"), sends design feedback, asks for a client preview, or prepares a site for publishing and handover.
 compatibility: Needs read/write access to the client project folder. Python 3.10+ runs the audit and packaging scripts. Browser or screenshot tools improve visual review; without them, say plainly what was not checked.
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Client Website Studio
@@ -43,7 +43,7 @@ client/approvals/   screenshots of client approvals
 brand/              logo, colours and photos sorted from the inbox
 concepts/           design directions as screenshots
 site/               the website source; the only thing that goes online
-preview/            generated preview with Review Mode; never edit by hand
+preview/            generated preview; never edit by hand
 review/round-N/     screenshots for each review round
 feedback/log.md     notes received and what changed, per round
 handover/           ZIP files, handover sheet, quality report
@@ -70,15 +70,21 @@ python3 <skill>/scripts/audit_site.py site --mode preview
     work-in-progress check; [[NEEDS]] markers are warnings
 python3 <skill>/scripts/audit_site.py site
     release check; markers, preview leftovers and compliance claims are errors
-python3 <skill>/scripts/package_site.py site preview --preview --label "نسخة 3"
-    local preview folder with Review Mode; the marketer opens preview/ar/index.html
-python3 <skill>/scripts/package_site.py site handover/preview-CLIENT.zip --preview --label "نسخة 3"
+python3 <skill>/scripts/package_site.py site preview --preview
+    local preview folder (noindex); then always run serve_preview.py (below)
+python3 <skill>/scripts/package_site.py site handover/preview-CLIENT.zip --preview
     preview ZIP for the agency's password-protected preview folder
+python3 <skill>/scripts/serve_preview.py preview
+    serves the preview on http://127.0.0.1:8080 (this computer only), run in the background
 python3 <skill>/scripts/package_site.py site handover/DOMAIN-YYYYMMDD.zip --approval "who approved, when, how"
     release ZIP; refuses to build if the release audit fails
 ```
 
 The audit reads source files only. It does not prove layout, accessibility, translation quality or that publishing worked.
+
+## Local preview, always
+
+After every preview build, start `serve_preview.py preview` in the background yourself and give the marketer the localhost links (`http://127.0.0.1:8080/ar/index.html` and `.../en/index.html`). Never ask for approval, never ask whether they want it, and never ask them to run anything. It listens on this computer only. If the port is busy it picks the next free one; read the printed address. Restart it yourself if it stopped, and rebuild the preview before telling them a change is visible.
 
 ## Gates
 

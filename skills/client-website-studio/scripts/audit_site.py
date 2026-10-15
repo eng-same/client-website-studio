@@ -42,7 +42,6 @@ BANK_MENTION = re.compile(r'(?i)central\s+bank|\bcbl\b|مصرف\s+ليبيا\s+�
 SECRET = re.compile(
     r'(?i)-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'
     r'|(?:password|passwd|secret|api[_-]?key|access[_-]?token)\s*[:=]\s*["\']?[A-Za-z0-9_!@$#%^&*.-]{8,}')
-REVIEW_MODE = re.compile(r'data-review-mode|review-mode\.js|__reviewModeLoaded', re.I)
 CSS_URL = re.compile(r'url\(\s*(["\']?)(.*?)\1\s*\)', re.I | re.S)
 CSS_IMPORT = re.compile(r'@import\s+(["\'])(.*?)\1', re.I)
 FREE_MAIL = {'gmail.com', 'googlemail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com',
@@ -369,8 +368,6 @@ def check_page(report: Report, file: Path) -> Page:
         report.warn(name, 'Mentions the Central Bank; make sure the wording makes no compliance claim')
     if SECRET.search(data):
         report.error(name, 'Possible password, key or token in the page; remove it')
-    if REVIEW_MODE.search(data):
-        report.error(name, 'Review Mode code found in the site source; previews must be built with package_site.py --preview')
     if page.noindex:
         report.by_mode(name, 'Page tells search engines not to index it (noindex); remove before release')
     return page
@@ -392,12 +389,8 @@ def audit(root: Path, mode: str = 'release') -> dict:
         elif suffix == '.css':
             css = file.read_text(encoding='utf-8-sig', errors='replace')
             check_css_text(report, css, file.parent, rel(file, root))
-            if REVIEW_MODE.search(css):
-                report.error(rel(file, root), 'Review Mode code found in the site source')
         elif suffix == '.js':
             js = file.read_text(encoding='utf-8-sig', errors='replace')
-            if REVIEW_MODE.search(js):
-                report.error(rel(file, root), 'Review Mode code found in the site source')
             if SECRET.search(js):
                 report.error(rel(file, root), 'Possible password, key or token in a script; remove it')
 

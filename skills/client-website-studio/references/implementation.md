@@ -17,7 +17,7 @@ site/
 - Each language page owns its semantic HTML and approved text. Shared CSS and JS carry shared presentation and behaviour. Repeating localised HTML structure is acceptable for no-build hosting; duplicating logic, styles or large pasted blocks is not.
 - Every page: `<!doctype html>`, `<html lang="ar" dir="rtl">` or `<html lang="en" dir="ltr">`, charset, viewport, a unique title, a meta description, a sensible heading order, and canonical/hreflang links once the final URLs are known.
 - Skip-to-content link, `<main id="main">`, proper landmarks, real buttons and anchors. Navigation, WhatsApp, email and phone links must do exactly what their labels say.
-- Give each top-level `<header>`, `<section>` and `<footer>` a `data-section` attribute with a short name in the page's language (see `review-rounds.md`). Review notes use these names.
+- Give each top-level `<header>`, `<section>` and `<footer>` a `data-section` attribute with a short name in the page's language (see `review-rounds.md`). Feedback uses these names.
 
 ## Paths and links
 

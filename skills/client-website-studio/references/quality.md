@@ -20,7 +20,7 @@ Errors block packaging; warnings need a human look.
 | Pages | Missing root `index.html`, missing `lang`, wrong `dir` for `ar`/`en`, title count not 1, image without `alt`, dead links (`#`, empty, `javascript:`) | Missing doctype, viewport, `<main>` or a single `<h1>`; duplicate ids; sections without `data-section`; no language switch between `ar/` and `en/` |
 | Files and paths | Broken local references in HTML or CSS, paths leaving the site folder, paths starting with `/`, secrets, private keys, non-static source files | External resources, folder links, hidden files, PDFs, large images |
 | Content | Central Bank compliance or approval wording; in release mode, `[[NEEDS]]` markers | Other placeholder text, any mention of the Central Bank, free webmail addresses, phone links without +, malformed WhatsApp links |
-| Preview leftovers | Review Mode code in `site/`; in release mode, `noindex` tags | — |
+| Preview leftovers | `noindex` tags in release mode | — |
 
 ## Decision
 

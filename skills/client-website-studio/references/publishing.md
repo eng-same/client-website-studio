@@ -6,7 +6,7 @@ Explain every step in plain words, **one screen at a time**, and wait until the 
 
 The agency keeps one preview area on its own hosting, for example `preview.<agency-domain>`, with one folder per client.
 
-1. Build the preview ZIP: `package_site.py site handover/preview-CLIENT.zip --preview --label "نسخة N"`. It adds Review Mode and a no-index tag to the copy; `site/` stays untouched.
+1. Build the preview ZIP: `package_site.py site handover/preview-CLIENT.zip --preview`. It adds a no-index tag to the copy; `site/` stays untouched.
 2. Agency cPanel → **File Manager** → the preview area → create a folder named after the client → open it → **Upload** the ZIP → right-click it → **Extract** → delete the ZIP.
 3. cPanel → **Directory Privacy** → open the client's folder → tick "Password protect this directory" → **Save** → add a user name and password. Each client gets its own password, and subfolders inherit the protection ([cPanel docs](https://docs.cpanel.net/cpanel/files/directory-privacy/)).
 4. The marketer sends the link and the password to the client in two separate messages.
