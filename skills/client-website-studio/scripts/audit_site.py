@@ -12,7 +12,9 @@ Exit code 1 when any error is found.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import sys
 from collections import Counter
@@ -21,6 +23,22 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 SKIP_DIRS = {'.git', '.svn', 'node_modules', '__pycache__'}
+# Working folders of a client project. They live next to the website files but are never part of the site.
+PRIVATE_DIRS = {'client', 'brand', 'concepts', 'review', 'feedback', 'handover', 'preview', 'versions'}
+# Folders and files that belong to the skill or to an agent. They must never sit inside a client project.
+SKILL_DIRS = {'.studio-kit', 'client-website-studio', '.claude', '.agents', '.codex'}
+SKILL_FILES = {'SKILL.md', 'START.md', 'STARTING-PROMPT.md', 'audit_site.py', 'package_site.py',
+               'serve_preview.py', 'check_layout.py', 'verify_zip.py', 'normalize_project.py'}
+# Names a wrapper around the real website tends to have.
+WRAPPER_DIRS = {'site', 'www', 'public', 'public_html', 'httpdocs', 'dist', 'build', 'test', 'website'}
+SKIP_NAMES = {'.DS_Store', 'Thumbs.db', 'desktop.ini'}
+SKIP_EXT = {'.md', '.log', '.bak', '.tmp', '.zip', '.map'}
+HOST_CONFIG = {'web.config', '.htaccess'}
+LOCAL_PATH = re.compile(r'(?<![A-Za-z0-9])[A-Za-z]:[\\/](?![\\/])[\w .-]+[\\/]|file:///')
+REDIRECT = re.compile(r'''(?i)<meta[^>]+http-equiv=["']?refresh|location\.(?:href|replace|assign)|location\s*=''')
+PLACEHOLDER_PAGE = re.compile(
+    r'(?i)\b(?:hello,?\s+world|coming soon|under construction|it works!?|welcome to nginx|'
+    r'default web site page|site is being built)\b')
 VOID_TAGS = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
              'param', 'source', 'track', 'wbr'}
 SECTION_TAGS = {'header', 'section', 'footer'}
@@ -61,6 +79,83 @@ def utf8_stdout() -> None:
             stream.reconfigure(encoding='utf-8', errors='replace')
         except (AttributeError, ValueError):
             pass
+
+
+def walk_site(root: Path, include_hidden: bool = False) -> tuple[list[Path], list[str]]:
+    """Files that belong to the website, and notes about what was left out.
+
+    Project working folders, skill and agent folders, hidden files and non-website files are never included.
+    The packager ships exactly this list, and the audit checks exactly this list.
+    """
+    files: list[Path] = []
+    notes: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        here = Path(dirpath)
+        top = here == root
+        keep = []
+        for name in sorted(dirnames):
+            if name in SKIP_DIRS or name in SKILL_DIRS:
+                continue
+            if top and name in PRIVATE_DIRS:
+                continue
+            if name.startswith('.') and not include_hidden:
+                notes.append(f'{(here / name).relative_to(root).as_posix()}/ (hidden folder)')
+                continue
+            keep.append(name)
+        dirnames[:] = keep
+        for name in sorted(filenames):
+            path = here / name
+            relpath = path.relative_to(root).as_posix()
+            if name in SKIP_NAMES:
+                continue
+            if name in HOST_CONFIG:
+                notes.append(f'{relpath} (server configuration; never shipped, handle it with the host)')
+                continue
+            if name.startswith('.') and not include_hidden:
+                notes.append(f'{relpath} (hidden file)')
+                continue
+            if path.suffix.lower() in SKIP_EXT and not include_hidden:
+                notes.append(f'{relpath} (not a website file)')
+                continue
+            files.append(path)
+    return files, notes
+
+
+def find_skill_contamination(root: Path) -> list[str]:
+    """Skill or agent files found anywhere inside the project (the skill must live outside it)."""
+    found: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        here = Path(dirpath)
+        keep = []
+        for name in sorted(dirnames):
+            if name in ('.git', 'node_modules', '__pycache__'):
+                continue
+            if name in ('.claude', '.agents', '.codex'):
+                if (here / name / 'skills').is_dir():
+                    found.append((here / name / 'skills').relative_to(root).as_posix() + '/')
+                continue
+            if name in SKILL_DIRS:
+                found.append((here / name).relative_to(root).as_posix() + '/')
+                continue
+            keep.append(name)
+        dirnames[:] = keep
+        for name in filenames:
+            if name in SKILL_FILES:
+                found.append((here / name).relative_to(root).as_posix())
+    return found
+
+
+def find_nested_site(root: Path) -> list[str]:
+    """Top-level folders that look like a second copy of the website (e.g. site/index.html)."""
+    nested = []
+    for child in sorted(root.iterdir()):
+        if not child.is_dir() or child.name.startswith('.') or child.name in PRIVATE_DIRS or child.name in SKIP_DIRS:
+            continue
+        if child.name in ('ar', 'en', 'assets'):
+            continue
+        if (child / 'index.html').is_file() and (child.name in WRAPPER_DIRS or (child / 'assets').is_dir()):
+            nested.append(child.name)
+    return nested
 
 
 class Page(HTMLParser):
@@ -159,6 +254,7 @@ class Report:
         self.errors: list[dict] = []
         self.warnings: list[dict] = []
         self.pages: list[str] = []
+        self.referenced: set[Path] = set()
 
     def error(self, file: str, problem: str) -> None:
         self.errors.append({'file': file, 'problem': problem})
@@ -185,8 +281,12 @@ def rel(path: Path, root: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
-def skipped(path: Path, root: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.relative_to(root).parts)
+def points_into_dev_folder(target: Path, root: Path) -> bool:
+    try:
+        first = target.resolve().relative_to(root.resolve()).parts[0]
+    except (ValueError, IndexError):
+        return False
+    return first in PRIVATE_DIRS or first in SKILL_DIRS or first in WRAPPER_DIRS
 
 
 def resolve_local(raw: str, base: Path, root: Path):
@@ -261,6 +361,9 @@ def check_ref(report: Report, file: Path, tag: str, key: str, raw: str, attrs: d
     if problem == 'escapes':
         report.error(name, f'Path leaves the site folder: {raw}')
         return
+    report.referenced.add(target.resolve())
+    if points_into_dev_folder(target, root):
+        report.error(name, f'Points into a development or wrapper folder that is not part of the website: {raw}')
     if parts.path.startswith('/'):
         report.error(name, f'Path starts with "/"; use a relative path so previews in a subfolder work: {raw}')
     elif tag == 'a' and parts.path.endswith('/'):
@@ -284,6 +387,10 @@ def check_css_text(report: Report, css: str, base: Path, owner: str) -> None:
         target, problem = resolve_local(raw, base, report.root)
         if target is None:
             continue
+        if not problem:
+            report.referenced.add(target.resolve())
+            if points_into_dev_folder(target, report.root):
+                report.error(owner, f'Stylesheet points into a development folder: {raw}')
         if problem == 'escapes':
             report.error(owner, f'Stylesheet path leaves the site folder: {raw}')
         elif parts.path.startswith('/'):
@@ -373,43 +480,117 @@ def check_page(report: Report, file: Path) -> Page:
     return page
 
 
-def audit(root: Path, mode: str = 'release') -> dict:
+def visible_text(page: Page) -> str:
+    return re.sub(r'\s+', ' ', ' '.join(page.text)).strip()
+
+
+def check_structure(report: Report, root: Path) -> None:
+    """Project-level safeguards: skill files, wrapper folders and a real root page."""
+    for item in find_skill_contamination(root):
+        report.error(item, 'Skill or agent files must never be inside the client project. '
+                           'Run normalize_project.py, or move them out of the project')
+    nested = find_nested_site(root)
+    for name in nested:
+        if (root / 'index.html').is_file():
+            report.error(f'{name}/index.html', 'A second copy of the website sits in a wrapper folder. '
+                                               'The website must live directly in the project root; run normalize_project.py')
+        else:
+            report.error(f'{name}/index.html', 'The website is inside a wrapper folder instead of the project root. '
+                                               'Run normalize_project.py to move it up safely')
+    if not (root / 'index.html').is_file() and not nested:
+        report.error('index.html', 'Missing index.html at the site root')
+    if root.name.lower() in WRAPPER_DIRS and not (root / 'index.html').is_file():
+        report.warn('.', f'The folder is named "{root.name}"; check that this is the real project root')
+
+
+def check_root_page(report: Report, page: Page, data: str) -> None:
+    text = visible_text(page)
+    if len(text) < 15 or (not page.anchors and page.sections == 0 and page.tags['main'] == 0):
+        report.error('index.html', 'The root index.html looks empty; it must be a real, working page')
+    if PLACEHOLDER_PAGE.search(text):
+        report.error('index.html', f'The root index.html is a placeholder page: "{PLACEHOLDER_PAGE.search(text).group(0)}"')
+    if REDIRECT.search(data) and len(text) < 60:
+        report.error('index.html', 'The root index.html only redirects. Make it a real page '
+                                   '(the main-language homepage or a language chooser) instead of a redirect')
+
+
+def check_languages(report: Report, root: Path, pages: dict, single_language: bool) -> None:
+    by_lang: dict[str, tuple[str, Path]] = {}
+    for code in ('ar', 'en'):
+        path = root / code / 'index.html'
+        if path.is_file():
+            by_lang[code] = (f'{code}/index.html', path)
+        elif 'index.html' in pages and (pages['index.html'].lang or '').split('-')[0].lower() == code:
+            by_lang[code] = ('index.html', root / 'index.html')
+    if single_language:
+        return
+    for code in ('ar', 'en'):
+        if code not in by_lang:
+            report.by_mode(f'{code}/index.html',
+                           'Language page is missing (needed for a bilingual site; pass --single-language only '
+                           'if the client agreed to one language)')
+    if len(by_lang) < 2:
+        return
+    names = {'ar': 'Arabic', 'en': 'English'}
+    for code, (name, path) in by_lang.items():
+        other = 'en' if code == 'ar' else 'ar'
+        if not links_to(pages[name], path, by_lang[other][1], root):
+            report.by_mode(name, f'No link to the {names[other]} page ({by_lang[other][0]})')
+
+
+def check_duplicates_and_unused(report: Report, root: Path, files: list[Path], texts: dict[Path, str]) -> None:
+    seen: dict[str, Path] = {}
+    for file in files:
+        if file.stat().st_size == 0:
+            continue
+        digest = hashlib.sha256(file.read_bytes()).hexdigest()
+        if digest in seen:
+            report.by_mode(rel(file, root), f'Duplicate of {rel(seen[digest], root)}; keep one copy')
+        else:
+            seen[digest] = file
+    blob = '\n'.join(texts.values())
+    exempt_names = {'robots.txt', 'sitemap.xml', 'manifest.webmanifest', '404.html', 'ads.txt', 'humans.txt'}
+    checked_ext = IMAGE_EXT | {'.css', '.js', '.woff', '.woff2', '.ttf', '.otf', '.ico', '.mp4', '.webm'}
+    for file in files:
+        suffix = file.suffix.lower()
+        if suffix not in checked_ext or file.name.lower() in exempt_names or file.name.lower().startswith('favicon'):
+            continue
+        if file.resolve() in report.referenced or file.name in blob:
+            continue
+        report.by_mode(rel(file, root), 'File is not used by any page; remove it so the ZIP stays clean')
+
+
+def audit(root: Path, mode: str = 'release', single_language: bool = False) -> dict:
     root = root.resolve()
     report = Report(root, mode)
-    if not (root / 'index.html').is_file():
-        report.error('index.html', 'Missing index.html at the site root')
+    check_structure(report, root)
 
+    files, _ = walk_site(root)
+    everything, _ = walk_site(root, include_hidden=True)
     pages: dict[str, Page] = {}
-    for file in sorted(root.rglob('*')):
-        if not file.is_file() or skipped(file, root):
-            continue
+    texts: dict[Path, str] = {}
+    for file in files:
         suffix = file.suffix.lower()
         if suffix in ('.html', '.htm'):
             pages[rel(file, root)] = check_page(report, file)
-        elif suffix == '.css':
-            css = file.read_text(encoding='utf-8-sig', errors='replace')
-            check_css_text(report, css, file.parent, rel(file, root))
-        elif suffix == '.js':
-            js = file.read_text(encoding='utf-8-sig', errors='replace')
-            if SECRET.search(js):
+            texts[file] = file.read_text(encoding='utf-8-sig', errors='replace')
+        elif suffix in ('.css', '.js'):
+            texts[file] = file.read_text(encoding='utf-8-sig', errors='replace')
+            if suffix == '.css':
+                check_css_text(report, texts[file], file.parent, rel(file, root))
+            elif SECRET.search(texts[file]):
                 report.error(rel(file, root), 'Possible password, key or token in a script; remove it')
+        if suffix in ('.html', '.htm', '.css', '.js') and LOCAL_PATH.search(texts[file]):
+            report.error(rel(file, root), f'Contains a path on a local computer: "{LOCAL_PATH.search(texts[file]).group(0)}"')
 
     if not pages:
         report.error('.', 'No HTML pages found')
+    if 'index.html' in pages:
+        check_root_page(report, pages['index.html'], texts[root / 'index.html'])
+    check_languages(report, root, pages, single_language)
+    check_duplicates_and_unused(report, root, files, texts)
 
-    ar, en = root / 'ar' / 'index.html', root / 'en' / 'index.html'
-    for locale, path in (('ar', ar), ('en', en)):
-        if not path.is_file():
-            report.warn(f'{locale}/index.html', 'Expected language page is missing (needed for a bilingual site)')
-    if ar.is_file() and en.is_file():
-        if not links_to(pages['ar/index.html'], ar, en, root):
-            report.warn('ar/index.html', 'No link to the English page (en/index.html)')
-        if not links_to(pages['en/index.html'], en, ar, root):
-            report.warn('en/index.html', 'No link to the Arabic page (ar/index.html)')
-
-    for file in sorted(root.rglob('*')):
-        if not file.is_file() or skipped(file, root):
-            continue
+    for file in everything:
         name = rel(file, root)
         suffix = file.suffix.lower()
         if suffix in SENSITIVE_EXT or file.name in SENSITIVE_NAMES or file.name.lower().startswith('.env'):
@@ -420,12 +601,19 @@ def audit(root: Path, mode: str = 'release') -> dict:
             report.warn(name, 'Hidden file; it will not be included in the ZIP')
         if suffix == '.pdf':
             report.warn(name, 'PDF will be public; confirm it is meant to be published')
+        if suffix in SKIP_EXT:
+            continue
         size = file.stat().st_size
         if suffix in IMAGE_EXT and size > 600_000:
             report.warn(name, f'Large image ({size // 1000} KB); compress to about 300 KB or less')
         elif size > 3_000_000:
             report.warn(name, f'Large file ({size // 1_000_000} MB); check it is needed')
-    return report.result()
+    for file in walk_site(root)[1]:
+        if 'server configuration' in file:
+            report.warn(file.split(' ')[0], 'Server configuration is never shipped; agree any change with the host')
+    result = report.result()
+    result['shipped_files'] = sorted(rel(f, root) for f in files)
+    return result
 
 
 def format_report(result: dict) -> str:
@@ -443,14 +631,16 @@ def format_report(result: dict) -> str:
 def main() -> None:
     utf8_stdout()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('site', type=Path, help='folder containing index.html')
+    parser.add_argument('site', type=Path, help='the project folder; the website files sit directly in it')
     parser.add_argument('--mode', choices=('release', 'preview'), default='release')
+    parser.add_argument('--single-language', action='store_true',
+                        help='the client agreed to a one-language site (skips the Arabic/English pair checks)')
     parser.add_argument('--report', type=Path, help='also write the result as JSON to this file')
     parser.add_argument('--json', action='store_true', help='print JSON instead of a summary')
     args = parser.parse_args()
     if not args.site.is_dir():
         parser.error(f'site folder not found: {args.site}')
-    result = audit(args.site, args.mode)
+    result = audit(args.site, args.mode, args.single_language)
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding='utf-8')

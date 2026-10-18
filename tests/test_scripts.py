@@ -25,7 +25,7 @@ def problems(result: dict, level: str) -> str:
 class SiteCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp())
-        self.site = self.tmp / 'site'
+        self.site = self.tmp / 'project'
         shutil.copytree(FIXTURE, self.site)
 
     def tearDown(self) -> None:
@@ -94,7 +94,7 @@ class AuditTests(SiteCase):
         self.edit('en/index.html', '<a href="../ar/index.html" lang="ar">العربية</a>', '')
         result = audit(self.site, 'release')
         self.assertIn('Expected dir="ltr"', problems(result, 'errors'))
-        self.assertIn('No link to the Arabic page', problems(result, 'warnings'))
+        self.assertIn('No link to the Arabic page', problems(result, 'errors'))
 
     def test_dead_links_and_secrets(self):
         self.edit('ar/index.html', 'href="#services"', 'href="#"')
@@ -205,7 +205,8 @@ class RepoTests(unittest.TestCase):
                     'references/publishing.md', 'references/handover.md', 'assets/brief-template.md'):
             self.assertIn(rel.split('/')[-1], text)
             self.assertTrue((skill_dir / rel).is_file(), rel)
-        self.assertTrue((skill_dir / 'scripts' / 'serve_preview.py').is_file())
+        for script in ('serve_preview.py', 'verify_zip.py', 'normalize_project.py', 'check_live.py', 'audit_site.py', 'package_site.py'):
+            self.assertTrue((skill_dir / 'scripts' / script).is_file(), script)
 
 
 class LayoutCheckTests(unittest.TestCase):

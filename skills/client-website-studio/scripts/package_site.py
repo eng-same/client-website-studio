@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Build a release ZIP or a preview from a static site folder.
+"""Build the deployment ZIP or a preview from a client project. Run it from the project folder.
 
-Release:  package_site.py site handover/example-ly-20261015.zip --approval "Client OK on WhatsApp, 15 Oct"
-          Runs the release audit first and refuses to build if it fails.
-          Writes the ZIP (index.html at its root) and a .json record next to it.
+The website files sit directly in the project folder (index.html, ar/, en/, assets/). Working folders such as
+client/, brand/ and handover/, hidden files, notes and old ZIPs are never shipped.
 
-Preview:  package_site.py site preview --preview
-          package_site.py site handover/preview-client.zip --preview
-          Copies the site, adds a noindex tag to every page.
-          The site folder itself is never changed.
+Release:  package_site.py . --approval "Client OK on WhatsApp, 15 Oct"
+          Runs the release audit, builds handover/DEPLOY-READY.zip with index.html at its root, then
+          re-opens the ZIP, extracts it, audits it and serves it over HTTP. The ZIP is deleted if any step fails.
+
+Preview:  package_site.py . preview --preview
+          package_site.py . handover/preview-client.zip --preview
+          Copies the site, adds a noindex tag to every page. The project files are never changed.
+
+List:     package_site.py . --list     shows exactly which files would be shipped.
 """
 from __future__ import annotations
 
@@ -25,41 +29,31 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True  # keep client folders free of __pycache__
 sys.path.insert(0, str(HERE))
-from audit_site import audit, format_report, utf8_stdout  # noqa: E402
+from audit_site import PRIVATE_DIRS, audit, format_report, utf8_stdout, walk_site  # noqa: E402
+from verify_zip import verify_zip  # noqa: E402
 
 PREVIEW_MARK = '.review-preview'
 FIXED_TIME = (2020, 1, 1, 0, 0, 0)
 ALLOWED_EXT = {'.html', '.htm', '.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif',
                '.ico', '.woff', '.woff2', '.ttf', '.otf', '.txt', '.xml', '.webmanifest', '.pdf', '.json',
                '.mp4', '.webm'}
-SKIP_DIRS = {'.git', '.svn', 'node_modules', '__pycache__', '.idea', '.vscode'}
-SKIP_NAMES = {'.DS_Store', 'Thumbs.db', 'desktop.ini'}
-SKIP_EXT = {'.md', '.log', '.bak', '.tmp', '.zip', '.map'}
+DEFAULT_RELEASE = Path('handover') / 'DEPLOY-READY.zip'
 
 
 def collect(site: Path) -> tuple[list[Path], list[str], list[str]]:
     """Return (files to ship, skipped notes, blocking problems)."""
-    files, skipped, problems = [], [], []
-    for path in sorted(site.rglob('*')):
-        rel = path.relative_to(site)
+    files, skipped = walk_site(site)
+    problems = []
+    shipped = []
+    for path in files:
+        rel = path.relative_to(site).as_posix()
         if path.is_symlink():
-            problems.append(f'Symbolic link not supported: {rel.as_posix()}')
-            continue
-        if not path.is_file():
-            continue
-        if any(part in SKIP_DIRS for part in rel.parts) or path.name in SKIP_NAMES:
-            continue
-        if any(part.startswith('.') for part in rel.parts):
-            skipped.append(f'{rel.as_posix()} (hidden file)')
-            continue
-        if path.suffix.lower() in SKIP_EXT:
-            skipped.append(f'{rel.as_posix()} (not a website file)')
-            continue
-        if path.suffix.lower() not in ALLOWED_EXT:
-            problems.append(f'Unexpected file type, review it manually: {rel.as_posix()}')
-            continue
-        files.append(path)
-    return files, skipped, problems
+            problems.append(f'Symbolic link not supported: {rel}')
+        elif path.suffix.lower() not in ALLOWED_EXT:
+            problems.append(f'Unexpected file type, review it manually: {rel}')
+        else:
+            shipped.append(path)
+    return shipped, skipped, problems
 
 
 def add_noindex(html: str) -> str:
@@ -113,18 +107,36 @@ def sha256(path: Path) -> str:
 def main() -> None:
     utf8_stdout()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('site', type=Path, help='folder containing index.html')
-    parser.add_argument('output', type=Path, help='a .zip file, or (with --preview) a folder')
+    parser.add_argument('site', type=Path, help='the project folder (website files sit directly in it)')
+    parser.add_argument('output', type=Path, nargs='?',
+                        help=f'a .zip file, or (with --preview) a folder; a release defaults to {DEFAULT_RELEASE.as_posix()}')
     parser.add_argument('--preview', action='store_true', help='build a preview (noindex) instead of a release')
     parser.add_argument('--approval', default='', help='release only: who approved the content, when and how')
+    parser.add_argument('--single-language', action='store_true', help='the client agreed to a one-language site')
+    parser.add_argument('--list', action='store_true', help='only list the files that would be shipped')
     args = parser.parse_args()
 
     site = args.site.resolve()
+    if not site.is_dir():
+        parser.error(f'project folder not found: {site}')
+    if args.list:
+        files, skipped, problems = collect(site)
+        for path in files:
+            print(path.relative_to(site).as_posix())
+        for note in skipped + problems:
+            print(f'# not shipped: {note}', file=sys.stderr)
+        return
+    if args.output is None:
+        if args.preview:
+            parser.error('a preview needs an output folder or .zip')
+        args.output = site / DEFAULT_RELEASE
     out = args.output.resolve()
     if not (site / 'index.html').is_file():
-        parser.error('the site folder must contain index.html at its root')
-    if out == site or site in out.parents:
-        parser.error('the output must be outside the site folder')
+        parser.error('index.html must sit directly in the project folder (run the audit for details)')
+    if out == site:
+        parser.error('the output cannot be the project folder')
+    if site in out.parents and out.relative_to(site).parts[0] not in PRIVATE_DIRS:
+        parser.error('inside the project, write output only to handover/ or preview/ so it never becomes part of the site')
     is_zip = out.suffix.lower() == '.zip'
     if not args.preview and not is_zip:
         parser.error('a release must be a .zip file')
@@ -132,7 +144,7 @@ def main() -> None:
         parser.error('a release needs --approval "who approved the content, when and how"')
 
     mode = 'preview' if args.preview else 'release'
-    result = audit(site, mode)
+    result = audit(site, mode, args.single_language)
     if result['errors']:
         print(format_report(result))
         raise SystemExit(f'\nNot packaged: fix the {len(result["errors"])} audit error(s) above first.')
@@ -143,6 +155,11 @@ def main() -> None:
 
     if is_zip:
         write_zip(out, site, files, args.preview)
+        zip_problems = verify_zip(out, mode, args.single_language)
+        if zip_problems:
+            out.unlink()
+            raise SystemExit('Not packaged: the finished ZIP failed its own check, so it was deleted:\n  - '
+                             + '\n  - '.join(zip_problems))
     else:
         write_folder(out, site, files)
 
@@ -151,10 +168,11 @@ def main() -> None:
     print(f'  {len(files)} files, {total / 1024:.0f} KB of website files'
           f'; audit {result["status"]} with {len(result["warnings"])} warning(s)')
     for note in skipped:
-        print(f'  skipped {note}')
+        print(f'  not shipped: {note}')
 
     if is_zip:
         checksum = sha256(out)
+        print('  ZIP re-opened, extracted, audited and served over HTTP: passed')
         print(f'  sha256 {checksum}')
         if not args.preview:
             record = {
@@ -164,15 +182,17 @@ def main() -> None:
                 'approval': args.approval.strip(),
                 'files': [p.relative_to(site).as_posix() for p in files],
                 'audit': {'status': result['status'], 'warnings': result['warnings']},
+                'zip_check': 'passed',
             }
             record_path = out.with_suffix('.json')
             record_path.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding='utf-8')
             print(f'  record {record_path.name}')
-            print('Next: confirm the upload folder with the host, back up any existing site, then publish.')
+            print('Next: extract the ZIP directly into the domain\'s website folder (httpdocs on Plesk, '
+                  'public_html on cPanel), then run check_live.py on the real address.')
         else:
             print('Next: upload to the client\'s password-protected preview folder on the agency hosting.')
     else:
-        print(f'Next: open {out / "ar" / "index.html"} (or index.html) in a browser.')
+        print(f'Next: open {out / "index.html"} in a browser.')
 
 
 if __name__ == '__main__':

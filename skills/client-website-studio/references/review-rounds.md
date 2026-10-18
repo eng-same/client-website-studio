@@ -12,8 +12,8 @@ Each top-level `<header>`, `<section>` and `<footer>` carries a `data-section` n
 ## One round, four beats
 
 1. **Show.**
-   - Run `audit_site.py site --mode preview` and fix every error.
-   - Build the preview: `package_site.py site preview --preview`, then start `serve_preview.py preview` in the background without asking and share the localhost links.
+   - Run `audit_site.py . --mode preview` and fix every error.
+   - Build the preview: `package_site.py . preview --preview`, then start `serve_preview.py preview` in the background without asking and share the localhost links.
    - Run `check_layout.py preview` and fix every overflow before showing anything.
    - If you can render pages, save phone (390 px) and desktop (1440 px) screenshots of each page in `review/round-N/` and show them.
    - Give the marketer the local links (`http://127.0.0.1:8080/ar/index.html`, `.../en/index.html`).
@@ -32,7 +32,7 @@ Each top-level `<header>`, `<section>` and `<footer>` carries a `data-section` n
 
 ## Undo and compare
 
-- "ارجع للنسخة N" (go back to version N): restore `site/` from that version, then save it as a new version named `رجوع إلى نسخة N`. Never rewrite history.
+- "ارجع للنسخة N" (go back to version N): restore the website files from that version, then save it as a new version named `رجوع إلى نسخة N`. Never rewrite history.
 - "قارن النسخة N بالنسخة M" (compare): show both rounds' screenshots side by side and list the differences in plain words.
 
 ## Round limits

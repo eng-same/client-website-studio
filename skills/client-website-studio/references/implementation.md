@@ -2,17 +2,20 @@
 
 ## Layout
 
+The project folder itself is the website. There is no `site/` wrapper.
+
 ```text
-site/
-  index.html              short language choice page, or the approved default language
-  ar/index.html
-  en/index.html
-  assets/css/site.css
-  assets/js/site.js       only when needed
-  assets/images/...
-  assets/fonts/...        self-hosted fonts plus their licence file
-  favicon.svg             only if the marketing team supplied a mark
+index.html                the approved default-language homepage, or a small but real language chooser
+ar/index.html
+en/index.html
+assets/css/site.css
+assets/js/site.js         only when needed
+assets/images/...
+assets/fonts/...          self-hosted fonts plus their licence file
+favicon.svg               only if the marketing team supplied a mark
 ```
+
+Beside these sit the private working folders (`client/`, `brand/`, `concepts/`, `review/`, `feedback/`, `handover/`, `preview/`), which are never shipped.
 
 - Each language page owns its semantic HTML and approved text. Shared CSS and JS carry shared presentation and behaviour. Repeating localised HTML structure is acceptable for no-build hosting; duplicating logic, styles or large pasted blocks is not.
 - Every page: `<!doctype html>`, `<html lang="ar" dir="rtl">` or `<html lang="en" dir="ltr">`, charset, viewport, a unique title, a meta description, a sensible heading order, and canonical/hreflang links once the final URLs are known.
@@ -31,7 +34,9 @@ site/
 - No analytics, trackers, session replay, cookies, remote widgets or other third-party requests without the client's explicit permission and a disclosure.
 - No contact form that pretends to submit without a real endpoint. Use clearly labelled `mailto:`, call or WhatsApp links instead. No secrets or client data in front-end files.
 - Use `textContent`, not `innerHTML`, for dynamic text. No `eval`, inline event strings or generated code. Add JavaScript only for behaviour that is truly needed.
-- No unnecessary folders, config files, package manifests, source maps, tests or unused libraries inside `site/`.
+- No unnecessary folders, config files, package manifests, source maps, tests, unused assets or duplicate files in the website. Never write a `web.config` or `.htaccess` for the host; the packager does not ship them.
+- The root `index.html` is a real page (the default-language homepage or a language chooser with visible content), never an empty file, a placeholder or a redirect-only page.
+- Never put a local computer path (`C:\...`, `file:///`) or a path into a working folder in any file.
 - For tiny sites, avoid elaborate caching or service workers. Version a file name only when a change must bypass caches.
 
 ## Browser storage

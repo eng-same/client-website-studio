@@ -1,6 +1,7 @@
 # Arabic and English
 
 - Both languages are complete, first-class experiences. Which language opens first is a content decision confirmed with the client; do not assume English.
+- The root `index.html` opens the site at the domain root. It is either the full homepage in the approved default language (then the other language lives in its own folder, linked from a visible switch) or a small chooser with visible text and links to `ar/index.html` and `en/index.html`. It is never a bare redirect.
 - Set `lang` and `dir` on every page (`ar` with `rtl`, `en` with `ltr`).
 - Each page has a visible language switch that links to the equivalent page by file name (`../en/index.html`), and to the equivalent section where practical. Label it in the target language's own script: `English`, `العربية`. No flags.
 - Translate everything visible plus metadata: navigation, buttons, footer, copyright, accessible labels, meaningful `alt` text, form labels if any, titles and descriptions. Keep names and regulated terms exactly as approved.
@@ -9,4 +10,4 @@
 - Keep labels short in both languages, and test long translations on narrow screens.
 - Use separate pages (`/ar/`, `/en/`), never machine translation in the browser or a toggle that swaps only the headings.
 - Change both languages together. When a review note edits one language, ask whether the other needs the same change.
-- If one language lacks confirmed content, do not call the site ready for a bilingual launch.
+- If one language lacks confirmed content, do not call the site ready for a bilingual launch. The release audit blocks a missing language page or a missing switch between the languages; `--single-language` is for sites the client explicitly agreed to publish in one language.

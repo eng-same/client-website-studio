@@ -8,13 +8,13 @@ Speak the marketer's language. Avoid words like "artifact", "webroot", "deploy",
 
 "Before it goes live, please confirm with the client: the company name, the service descriptions, the address, the phone numbers and the company email."
 
-"When everything is approved, use the website ZIP in the handover folder and the publishing steps from your training. The client's account owner should be present for the final handover."
+"When everything is approved, use `DEPLOY-READY.zip` in the handover folder and the publishing steps from your training. The client's account owner should be present for the final handover."
 
 "Checks completed: [only checks actually performed]. Still to check: [anything not verified]."
 
 ## Files in `handover/`
 
-- The release ZIP and its `.json` record (file list, checksum, audit result, approval note).
+- `DEPLOY-READY.zip`, the only file to publish, and its `DEPLOY-READY.json` record (file list, checksum, audit and ZIP-check result, approval note). Keep one ZIP only; name any older ones clearly or delete them.
 - `quality-report.md`: what was tested, when, by whom, and what remains unverified.
 - `handover-record.md`: the internal record below.
 
