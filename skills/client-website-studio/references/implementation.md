@@ -5,43 +5,35 @@
 The project folder itself is the website. There is no `site/` wrapper.
 
 ```text
-index.html                the approved default-language homepage, or a small but real language chooser
-ar/index.html
-en/index.html
-assets/css/site.css
-assets/js/site.js         only when needed
-assets/images/...
-assets/fonts/...          self-hosted fonts plus their licence file
-favicon.svg               only if the marketing team supplied a mark
+index.html     the entire bilingual website, with every runtime asset embedded
 ```
 
 Beside these sit the private working folders (`client/`, `brand/`, `concepts/`, `review/`, `feedback/`, `handover/`, `preview/`), which are never shipped.
 
-- Each language page owns its semantic HTML and approved text. Shared CSS and JS carry shared presentation and behaviour. Repeating localised HTML structure is acceptable for no-build hosting; duplicating logic, styles or large pasted blocks is not.
-- Every page: `<!doctype html>`, `<html lang="ar" dir="rtl">` or `<html lang="en" dir="ltr">`, charset, viewport, a unique title, a meta description, a sensible heading order, and canonical/hreflang links once the final URLs are known.
+- Keep complete Arabic and English semantic content in lang/dir containers in index.html. Share inline CSS and JavaScript. Use unique IDs across both languages; never fetch translations or asset files.
+- The one page: `<!doctype html>`, `<html lang="ar" dir="rtl">` or `<html lang="en" dir="ltr">`, charset, viewport, one meaningful client-specific title, a meta description, a sensible heading order, and a canonical link once the final URL is confirmed. Follow seo.md; do not fabricate alternate language URLs.
 - Skip-to-content link, `<main id="main">`, proper landmarks, real buttons and anchors. Navigation, WhatsApp, email and phone links must do exactly what their labels say.
 - Give each top-level `<header>`, `<section>` and `<footer>` a `data-section` attribute with a short name in the page's language (see `review-rounds.md`). Feedback uses these names.
 
 ## Paths and links
 
-- Use **relative paths only** for local files and pages: `assets/css/site.css`, `../en/index.html`. Never start a local path with `/`. Relative paths keep the site working inside the agency's preview subfolder and when opened straight from a folder. The audit treats a leading `/` as an error.
-- Link to pages by file name (`../en/index.html`, not `../en/`). A folder link opens a file list when the preview is opened from disk.
+- Use `#section-id` for navigation and language links. No local page or download links. External contact/map links are allowed; external runtime resources are not.
 - Phone links use the country code: `tel:+218…`. WhatsApp links use digits only: `https://wa.me/2189…`, with no `+`, spaces or leading zero.
 
 ## Assets and third parties
 
-- Keep assets local wherever practical. If Bootstrap is truly justified, ship the licensed files locally instead of using a CDN, and never add it for a handful of simple sections.
+- Embed assets: CSS in `<style>`, JavaScript in `<script>`, SVG inline or in data URIs, compressed raster images and licensed fonts as data URIs. Inline required licence notices; keep original files privately in brand/. Use system fonts when embedding a font is unnecessary. No CDN, @import, fetch, remote scripts, remote images or iframe widgets.
 - No analytics, trackers, session replay, cookies, remote widgets or other third-party requests without the client's explicit permission and a disclosure.
 - No contact form that pretends to submit without a real endpoint. Use clearly labelled `mailto:`, call or WhatsApp links instead. No secrets or client data in front-end files.
 - Use `textContent`, not `innerHTML`, for dynamic text. No `eval`, inline event strings or generated code. Add JavaScript only for behaviour that is truly needed.
 - No unnecessary folders, config files, package manifests, source maps, tests, unused assets or duplicate files in the website. Never write a `web.config` or `.htaccess` for the host; the packager does not ship them.
-- The root `index.html` is a real page (the default-language homepage or a language chooser with visible content), never an empty file, a placeholder or a redirect-only page.
+- The root `index.html` is the full bilingual landing page, never an empty file, a placeholder or a redirect-only page.
 - Never put a local computer path (`C:\...`, `file:///`) or a path into a working folder in any file.
 - For tiny sites, avoid elaborate caching or service workers. Version a file name only when a change must bypass caches.
 
 ## Browser storage
 
-Default to **no browser storage**. With separate `/ar/` and `/en/` pages, a language preference does not need storage; link directly. If storage is truly justified:
+Default to **no browser storage**. Use same-page language anchors; do not require storage for language selection. If storage is truly justified:
 
 1. Define a specific, non-sensitive purpose and value type.
 2. Use one versioned key, for example `companySite.language.v1`.

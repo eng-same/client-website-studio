@@ -51,7 +51,7 @@ The skill is installed once per computer (Claude Code: `~/.claude/skills/`, Code
 
 ## What the marketer ends up with
 
-One file: `handover/DEPLOY-READY.zip`. It contains `index.html`, the language folders and `assets/` directly at its root, so it is extracted straight into `httpdocs` (Plesk) or `public_html` (cPanel) and works with nothing moved afterwards. It is built by `package_site.py`, which audits the site, builds the ZIP from the website files only, then re-opens it, extracts it, audits the extract and serves it over HTTP, and deletes it if anything fails.
+One file: `handover/DEPLOY-READY.zip`. It contains only the self-contained `index.html` directly at its root, so it is extracted straight into `httpdocs` (Plesk) or `public_html` (cPanel) and works with nothing moved afterwards. It is built by `package_site.py`, which audits the site, builds the ZIP from the website files only, then re-opens it, extracts it, audits the extract and serves it over HTTP, and deletes it if anything fails.
 
 ## Day-to-day use
 
@@ -126,3 +126,11 @@ Install separately if wanted; this skill's plain HTML/CSS/JS rules take priority
 - https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
 - https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design
 - https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines
+
+## Arabic-first, one-file delivery (v4)
+
+العربية هي الأساس: الموقع يفتح بالعربي واتجاهه من اليمين لليسار، والإنجليزية موجودة كاملة في نفس الملف. الصور والخطوط والتنسيقات والحركات كلها داخل `index.html`؛ لا توجد صفحات أو ملفات إضافية لرفعها.
+
+المساعد يختار عبارات البحث العربية المناسبة من اسم العميل وخدماته وموقعه المؤكد، ويكتب عنوان الصفحة ووصفها وبيانات الشركة تلقائياً. لا يحتاج الموظف لمعرفة إعدادات البحث، ولا يخترع المساعد نشاط الشركة من اسمها أو يضمن ترتيباً في جوجل.
+
+Existing projects: back up before migrating. `normalize_project.py` only fixes folder placement; it does not combine legacy language pages or embed their assets. The agent must preserve approved content/design, move originals into private working folders, then consolidate and audit `index.html`. Older multi-file outputs are now rejected even in preview. A missing optional canonical URL remains documented as pending until the real domain is confirmed.

@@ -16,7 +16,7 @@ Each top-level `<header>`, `<section>` and `<footer>` carries a `data-section` n
    - Build the preview: `package_site.py . preview --preview`, then start `serve_preview.py preview` in the background without asking and share the localhost links.
    - Run `check_layout.py preview` and fix every overflow before showing anything.
    - If you can render pages, save phone (390 px) and desktop (1440 px) screenshots of each page in `review/round-N/` and show them.
-   - Give the marketer the local links (`http://127.0.0.1:8080/ar/index.html`, `.../en/index.html`).
+   - Give the marketer the local links (`http://127.0.0.1:8080/index.html` (both languages in one page)).
    - List what changed since the last round, numbered.
 2. **Collect.** Ask for all notes for the round in one message. Accept any mix of:
    - plain text, ideally `[القسم] — المشكلة — المطلوب`;

@@ -44,7 +44,7 @@ If you cannot write to a user-level folder, keep the kit folder from step 1 and 
 
 ## 3. Build the project folder
 
-The project folder **is the website**: `index.html`, `ar/`, `en/` and `assets/` sit directly in it. There is no `site/` wrapper folder. Working folders live beside the website files and are never shipped.
+The project folder **is the website**: `index.html` containing both languages and all assets sit directly in it. There is no `site/` wrapper folder. Working folders live beside the website files and are never shipped.
 
 1. Copy every file from `<kit>/workspace-template/` into the project folder without overwriting anything that already exists.
 2. Create these folders if missing: `client/inbox`, `client/documents`, `client/approvals`, `brand`, `concepts`, `review`, `feedback`, `handover`.
@@ -76,3 +76,5 @@ Only when the marketer asks:
 2. Replace the user-level skill copy from `<kit>/skills/client-website-studio/`.
 3. Do not touch the website files, `client/` or any other project file.
 4. Record the new kit version in `PROJECT-STATUS.md`, and tell the marketer in one line what changed according to the kit's `CHANGELOG.md`.
+
+For legacy multi-file sites, back up before consolidating all approved bilingual content and assets into root index.html. normalize_project.py fixes folder placement only; it does not bundle assets or translations. Keep originals privately, then run the strict audit. Default to Arabic RTL, with complete English in the same file. Automatically follow references/seo.md from the installed skill.

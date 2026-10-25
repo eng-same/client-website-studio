@@ -30,8 +30,7 @@ sys.path.insert(0, str(SCRIPTS))
 from audit_site import audit  # noqa: E402
 from verify_zip import verify_zip  # noqa: E402
 
-SITE_FILES = {'index.html', 'ar/index.html', 'en/index.html', 'assets/css/site.css',
-              'assets/images/pattern.svg', 'assets/images/warehouse.svg'}
+SITE_FILES = {'index.html'}
 
 
 def run(script: str, *args: str) -> subprocess.CompletedProcess:
@@ -121,8 +120,8 @@ class TestA_NewBilingualProject(ProjectCase):
 
     def test_root_page_is_functional_and_links_both_languages(self):
         text = (self.project / 'index.html').read_text(encoding='utf-8')
-        self.assertIn('ar/index.html', text)
-        self.assertIn('en/index.html', text)
+        self.assertIn('href="#arabic"', text)
+        self.assertIn('href="#english"', text)
         self.assertEqual(audit(self.project, 'release')['errors'], [])
 
 
@@ -244,34 +243,30 @@ class TestD_ClonedSkillInProject(ProjectCase):
 
 class TestE_BrokenAssetPaths(ProjectCase):
     def test_broken_paths_block_the_zip(self):
-        self.edit('ar/index.html', 'href="../assets/css/site.css"', 'href="assets/css/site.css"')
-        self.edit('assets/css/site.css', 'url(../images/pattern.svg)', 'url(images/pattern.svg)')
-        text = errors_of(audit(self.project, 'release'))
-        self.assertIn('Broken local reference: assets/css/site.css', text)
-        out = self.package('--approval', 'x')
-        self.assertNotEqual(out.returncode, 0)
+        self.edit('index.html', '</head>', '<link rel="stylesheet" href="assets/css/site.css"></head>')
+        self.assertIn('Broken local reference', errors_of(audit(self.project)))
+        self.assertNotEqual(self.package('--approval', 'x').returncode, 0)
         self.assertFalse(self.zip_path.exists())
 
     def test_local_computer_paths_and_development_folder_references_block(self):
-        self.edit('en/index.html', 'href="../assets/css/site.css"', 'href="C:\\Users\\marketer\\Desktop\\site.css"')
-        self.edit('ar/index.html', 'href="../assets/css/site.css"', 'href="../brand/logo-original.png"')
-        text = errors_of(audit(self.project, 'release'))
+        self.edit('index.html', '</head>', '<link rel="stylesheet" href="brand/logo-original.png"></head>')
+        self.edit('index.html', '</body>', '<!-- file:///Users/marketer/site.css --></body>')
+        text = errors_of(audit(self.project))
         self.assertIn('local computer', text)
         self.assertIn('development or wrapper folder', text)
 
 
 class TestF_MissingLocalizedPages(ProjectCase):
     def drop_english(self):
-        (self.project / 'en' / 'index.html').unlink()
-        (self.project / 'en').rmdir()
-        for rel in ('index.html', 'ar/index.html'):
-            path = self.project / rel
-            text = path.read_text(encoding='utf-8')
-            path.write_text(re.sub(r'<a[^>]*en/index\.html[^>]*>.*?</a>', '', text), encoding='utf-8')
+        path = self.project / 'index.html'
+        text = path.read_text(encoding='utf-8')
+        text = re.sub(r'<section lang="en".*?</section>', '', text, flags=re.S)
+        text = re.sub(r'<a href="#english".*?</a>', '', text)
+        path.write_text(text, encoding='utf-8')
 
     def test_missing_language_page_blocks_release_but_not_preview(self):
         self.drop_english()
-        self.assertIn('en/index.html: Language page is missing', errors_of(audit(self.project, 'release')))
+        self.assertIn('English content is missing', errors_of(audit(self.project, 'release')))
         self.assertEqual(audit(self.project, 'preview')['errors'], [])
         self.assertNotEqual(self.package('--approval', 'x').returncode, 0)
 
@@ -282,12 +277,12 @@ class TestF_MissingLocalizedPages(ProjectCase):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
     def test_language_switch_must_not_lead_to_a_missing_page(self):
-        (self.project / 'ar' / 'index.html').unlink()
-        self.assertIn('Broken local reference', errors_of(audit(self.project, 'release')))
+        self.edit('index.html', 'id="english"', 'id="missing"')
+        self.assertIn('No in-page link to the English content', errors_of(audit(self.project)))
 
     def test_missing_switch_between_languages_blocks_release(self):
-        self.edit('en/index.html', '<a href="../ar/index.html" lang="ar">العربية</a>', '')
-        self.assertIn('No link to the Arabic page', errors_of(audit(self.project, 'release')))
+        self.edit('index.html', '<a href="#arabic" lang="ar">العربية</a>', '')
+        self.assertIn('No in-page link to the Arabic content', errors_of(audit(self.project, 'release')))
 
 
 class TestG_ZipWithWrapperDirectory(ProjectCase):
@@ -316,7 +311,12 @@ class TestG_ZipWithWrapperDirectory(ProjectCase):
         self.assertEqual(verify_zip(self.make_zip('')), [])
 
     def test_backslash_names_are_rejected(self):
-        self.assertTrue(verify_zip(self.make_zip('', backslash=True)))
+        out = self.make_zip('')
+        with zipfile.ZipFile(out, 'a') as archive:
+            info = zipfile.ZipInfo('placeholder')
+            info.filename = 'assets' + chr(92) + 'site.css'
+            archive.writestr(info, 'body{}')
+        self.assertTrue(any('Unsafe path' in p for p in verify_zip(out)))
 
     def test_skill_and_private_files_in_a_zip_are_rejected(self):
         out = self.make_zip('')
@@ -354,12 +354,12 @@ class TestH_OldArchivesAndDevelopmentFiles(ProjectCase):
         self.assertNotEqual(self.package('--approval', 'x').returncode, 0)
 
     def test_duplicate_and_unused_files_block_the_release(self):
-        shutil.copy(self.project / 'assets/images/warehouse.svg', self.project / 'assets/images/warehouse-copy.svg')
-        (self.project / 'assets' / 'images' / 'forgotten.png').write_bytes(b'\x89PNG forgotten')
-        text = errors_of(audit(self.project, 'release'))
+        shutil.copy(self.project / 'index.html', self.project / 'copy.html')
+        (self.project / 'forgotten.png').write_bytes(b'forgotten')
+        text = errors_of(audit(self.project))
         self.assertIn('Duplicate of', text)
-        self.assertIn('assets/images/forgotten.png: File is not used', text)
-        self.assertEqual(audit(self.project, 'preview')['errors'], [])
+        self.assertIn('forgotten.png: File is not used', text)
+        self.assertIn('single-file', errors_of(audit(self.project, 'preview')))
 
 
 class TestI_ExistingProductionProject(unittest.TestCase):
@@ -371,7 +371,7 @@ class TestI_ExistingProductionProject(unittest.TestCase):
         self.project = self.tmp / 'sarab'
         self.project.mkdir()
         ProjectCase('run').build_project(self.project, website_in='site')
-        (self.project / 'contract.txt').write_text('signed contract', encoding='utf-8')
+        (self.project / 'client' / 'contract.txt').write_text('signed contract', encoding='utf-8')
         (self.project / 'client' / 'inbox' / 'whatsapp.png').write_bytes(b'\x89PNG chat')
 
     def test_unrelated_files_survive_normalisation(self):
@@ -384,12 +384,11 @@ class TestI_ExistingProductionProject(unittest.TestCase):
                 self.assertEqual(after.get(rel), digest, f'{rel} must survive')
 
     def test_name_clash_stops_everything_and_changes_nothing(self):
-        (self.project / 'assets').mkdir()
-        (self.project / 'assets' / 'mine.txt').write_text('customised', encoding='utf-8')
+        (self.project / 'index.html').write_text('customised', encoding='utf-8')
         before = tree_hash(self.project)
         out = run('normalize_project.py', str(self.project), '--apply')
         self.assertNotEqual(out.returncode, 0)
-        self.assertIn('already exist', out.stdout)
+        self.assertRegex(out.stdout, 'already exist|two|Both|both')
         self.assertEqual(tree_hash(self.project), before)
         self.assertEqual([p for p in self.tmp.iterdir() if 'backup' in p.name], [])
 
@@ -419,18 +418,13 @@ class TestRootPageRules(ProjectCase):
             self.assertIn('index.html:', text, name)
             self.assertTrue(re.search(r'empty|placeholder|only redirects', text), (name, text))
 
-    def test_arabic_homepage_at_root_with_english_folder_is_valid(self):
-        shutil.move(self.project / 'ar' / 'index.html', self.project / 'index.html')
-        (self.project / 'ar').rmdir()
-        page = self.project / 'index.html'
-        text = page.read_text(encoding='utf-8')
-        text = text.replace('"../assets/', '"assets/').replace('"../en/', '"en/')
-        page.write_text(text, encoding='utf-8')
-        en = self.project / 'en' / 'index.html'
-        en.write_text(en.read_text(encoding='utf-8').replace('../ar/index.html', '../index.html'), encoding='utf-8')
-        result = audit(self.project, 'release')
-        self.assertEqual(result['errors'], [], errors_of(result))
-        self.assertEqual(self.package('--approval', 'x').returncode, 0)
+    def test_separate_english_folder_is_rejected(self):
+        # Legacy separate language pages must now fail rather than silently ship.
+        english = self.project / 'en'
+        english.mkdir()
+        shutil.copy(self.project / 'index.html', english / 'index.html')
+        self.assertIn('single-file', errors_of(audit(self.project)))
+        self.assertNotEqual(self.package('--approval', 'x').returncode, 0)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

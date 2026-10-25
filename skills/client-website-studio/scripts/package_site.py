@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the deployment ZIP or a preview from a client project. Run it from the project folder.
 
-The website files sit directly in the project folder (index.html, ar/, en/, assets/). Working folders such as
+The website is exactly one root index.html, containing both languages and all assets. Working folders such as
 client/, brand/ and handover/, hidden files, notes and old ZIPs are never shipped.
 
 Release:  package_site.py . --approval "Client OK on WhatsApp, 15 Oct"
