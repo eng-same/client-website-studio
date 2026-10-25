@@ -47,69 +47,68 @@ class AuditTests(SiteCase):
         self.assertEqual(result['errors'], [], problems(result, 'errors'))
         self.assertEqual(result['warnings'], [], problems(result, 'warnings'))
 
-    def test_needs_marker_warns_in_preview_and_blocks_release(self):
-        self.edit('ar/index.html', '<li>النقل داخل بنغازي</li>', '<li>[[NEEDS: ساعات العمل]]</li>')
-        self.assertEqual(audit(self.site, 'preview')['errors'], [])
+    def test_needs_marker_blocks_both_preview_and_release(self):
+        self.edit('index.html', '<li>النقل داخل بنغازي</li>', '<li>[[NEEDS: ساعات العمل]]</li>')
+        self.assertIn('[[', problems(audit(self.site, 'preview'), 'errors'))
         self.assertIn('[[', problems(audit(self.site, 'release'), 'errors'))
 
     def test_bank_claims_are_errors_in_both_languages(self):
-        self.edit('ar/index.html', '<h2>الخدمات</h2>', '<h2>موقع متوافق مع متطلبات مصرف ليبيا المركزي</h2>')
-        self.edit('en/index.html', '<h2>Services</h2>', '<h2>CBL-compliant company website</h2>')
+        self.edit('index.html', '<h2>الخدمات</h2>', '<h2>موقع متوافق مع متطلبات مصرف ليبيا المركزي</h2>')
+        self.edit('index.html', '<h2>Services</h2>', '<h2>CBL-compliant company website</h2>')
         errors = problems(audit(self.site, 'preview'), 'errors')
-        self.assertIn('ar/index.html', errors)
-        self.assertIn('en/index.html', errors)
+        self.assertIn('index.html', errors)
 
     def test_plain_bank_mention_is_only_a_warning(self):
-        self.edit('en/index.html', '<h2>Services</h2>', '<h2>We bank with the Central Bank branch nearby</h2>')
+        self.edit('index.html', '<h2>Services</h2>', '<h2>We bank with the Central Bank branch nearby</h2>')
         result = audit(self.site, 'release')
         self.assertEqual(result['errors'], [], problems(result, 'errors'))
         self.assertIn('Central Bank', problems(result, 'warnings'))
 
     def test_root_relative_path_is_an_error(self):
-        self.edit('ar/index.html', 'href="../assets/css/site.css"', 'href="/assets/css/site.css"')
+        self.edit('index.html', '</head>', '<link rel="stylesheet" href="/assets/css/site.css"></head>')
         self.assertIn('starts with "/"', problems(audit(self.site, 'release'), 'errors'))
 
     def test_broken_css_url_is_an_error(self):
-        self.edit('assets/css/site.css', 'url(../images/pattern.svg)', 'url(../images/missing.svg)')
+        self.edit('index.html', '</style>', 'body{background:url(missing.svg)}</style>')
         self.assertIn('missing.svg', problems(audit(self.site, 'release'), 'errors'))
 
     def test_broken_image_and_missing_alt(self):
-        self.edit('en/index.html', 'src="../assets/images/warehouse.svg" alt="The company warehouse"',
-                  'src="../assets/images/nope.png"')
+        self.edit('index.html', 'src="data:image/svg+xml;base64,PHN2Zy8+" alt="The company warehouse"',
+                  'src="assets/images/nope.png"')
         errors = problems(audit(self.site, 'release'), 'errors')
         self.assertIn('Broken local reference', errors)
         self.assertIn('no alt', errors)
 
     def test_contact_link_checks(self):
-        self.edit('en/index.html', 'tel:+218911234567', 'tel:0911234567')
-        self.edit('en/index.html', 'https://wa.me/218911234567', 'https://wa.me/+218911234567')
-        self.edit('en/index.html', 'mailto:info@example-trading.ly', 'mailto:company@gmail.com')
+        self.edit('index.html', 'tel:+218911234567', 'tel:0911234567')
+        self.edit('index.html', 'https://wa.me/218911234567', 'https://wa.me/+218911234567')
+        self.edit('index.html', 'mailto:info@example-trading.ly', 'mailto:company@gmail.com')
         warnings = problems(audit(self.site, 'release'), 'warnings')
         self.assertIn('country code', warnings)
         self.assertIn('WhatsApp', warnings)
         self.assertIn('gmail.com', warnings)
 
     def test_wrong_direction_and_missing_language_switch(self):
-        self.edit('en/index.html', 'dir="ltr"', 'dir="rtl"')
-        self.edit('en/index.html', '<a href="../ar/index.html" lang="ar">العربية</a>', '')
+        self.edit('index.html', 'lang="en" dir="ltr"', 'lang="en" dir="rtl"')
+        self.edit('index.html', '<a href="#arabic" lang="ar">العربية</a>', '')
         result = audit(self.site, 'release')
-        self.assertIn('Expected dir="ltr"', problems(result, 'errors'))
-        self.assertIn('No link to the Arabic page', problems(result, 'errors'))
+        self.assertIn('English content is missing', problems(result, 'errors'))
+        self.assertIn('No in-page link to the Arabic content', problems(result, 'errors'))
 
     def test_dead_links_and_secrets(self):
-        self.edit('ar/index.html', 'href="#services"', 'href="#"')
-        self.edit('ar/index.html', '</body>', '<!-- api_key = "abcd1234efgh5678" --></body>')
+        self.edit('index.html', 'href="#english"', 'href="#"')
+        self.edit('index.html', '</body>', '<!-- api_key = "abcd1234efgh5678" --></body>')
         errors = problems(audit(self.site, 'release'), 'errors')
         self.assertIn('goes nowhere', errors)
         self.assertIn('password, key or token', errors)
 
     def test_noindex_blocks_release_only(self):
-        self.edit('ar/index.html', '<meta charset="utf-8">', '<meta charset="utf-8"><meta name="robots" content="noindex">')
+        self.edit('index.html', '<meta charset="utf-8">', '<meta charset="utf-8"><meta name="robots" content="noindex">')
         self.assertEqual(audit(self.site, 'preview')['errors'], [])
         self.assertIn('noindex', problems(audit(self.site, 'release'), 'errors'))
 
     def test_section_names_and_sensitive_files(self):
-        self.edit('en/index.html', '<footer data-section="Footer">', '<footer>')
+        self.edit('index.html', '<footer data-section="Footer">', '<footer>')
         (self.site / '.env').write_text('SECRET=1', encoding='utf-8')
         result = audit(self.site, 'release')
         self.assertIn('data-section', problems(result, 'warnings'))
@@ -131,13 +130,12 @@ class PackageTests(SiteCase):
         result = self.package(str(out), '--approval', 'Client OK on WhatsApp')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         names = zipfile.ZipFile(out).namelist()
-        self.assertIn('index.html', names)
-        self.assertIn('ar/index.html', names)
+        self.assertEqual(names, ['index.html'])
         self.assertNotIn('notes.md', names)
         record = json.loads(out.with_suffix('.json').read_text(encoding='utf-8'))
         self.assertEqual(record['approval'], 'Client OK on WhatsApp')
         self.assertEqual(len(record['sha256']), 64)
-        html = zipfile.ZipFile(out).read('ar/index.html').decode('utf-8')
+        html = zipfile.ZipFile(out).read('index.html').decode('utf-8')
         self.assertNotIn('data-review-mode', html)
 
     def test_release_zip_is_reproducible(self):
@@ -147,21 +145,20 @@ class PackageTests(SiteCase):
         self.assertEqual(a.read_bytes(), b.read_bytes())
 
     def test_release_refused_when_audit_fails(self):
-        self.edit('ar/index.html', '<li>النقل داخل بنغازي</li>', '<li>[[NEEDS: ساعات العمل]]</li>')
+        self.edit('index.html', '<li>النقل داخل بنغازي</li>', '<li>[[NEEDS: ساعات العمل]]</li>')
         out = self.tmp / 'out.zip'
         result = self.package(str(out), '--approval', 'x')
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(out.exists())
 
     def test_preview_folder_adds_noindex_without_touching_site(self):
-        self.edit('ar/index.html', '<li>النقل داخل بنغازي</li>', '<li>[[NEEDS: ساعات العمل]]</li>')
-        before = (self.site / 'ar' / 'index.html').read_text(encoding='utf-8')
+        before = (self.site / 'index.html').read_text(encoding='utf-8')
         out = self.tmp / 'preview'
         result = self.package(str(out), '--preview')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        html = (out / 'ar' / 'index.html').read_text(encoding='utf-8')
+        html = (out / 'index.html').read_text(encoding='utf-8')
         self.assertIn('noindex', html)
-        self.assertEqual((self.site / 'ar' / 'index.html').read_text(encoding='utf-8'), before)
+        self.assertEqual((self.site / 'index.html').read_text(encoding='utf-8'), before)
         rebuild = self.package(str(out), '--preview')
         self.assertEqual(rebuild.returncode, 0, rebuild.stderr)
 

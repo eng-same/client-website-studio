@@ -1,13 +1,13 @@
-# Arabic and English
+# Arabic and English in one file
 
-- Both languages are complete, first-class experiences. Which language opens first is a content decision confirmed with the client; do not assume English.
-- The root `index.html` opens the site at the domain root. It is either the full homepage in the approved default language (then the other language lives in its own folder, linked from a visible switch) or a small chooser with visible text and links to `ar/index.html` and `en/index.html`. It is never a bare redirect.
-- Set `lang` and `dir` on every page (`ar` with `rtl`, `en` with `ltr`).
-- Each page has a visible language switch that links to the equivalent page by file name (`../en/index.html`), and to the equivalent section where practical. Label it in the target language's own script: `English`, `العربية`. No flags.
-- Translate everything visible plus metadata: navigation, buttons, footer, copyright, accessible labels, meaningful `alt` text, form labels if any, titles and descriptions. Keep names and regulated terms exactly as approved.
-- Isolate left-to-right fragments inside Arabic text: phone numbers, emails, URLs, registration numbers and dates (`<bdi>` or `dir="ltr"`). Check punctuation and order visually.
-- Use CSS logical properties and careful flex direction. Do not mirror photos, logos, maps or directional brand marks.
-- Keep labels short in both languages, and test long translations on narrow screens.
-- Use separate pages (`/ar/`, `/en/`), never machine translation in the browser or a toggle that swaps only the headings.
-- Change both languages together. When a review note edits one language, ask whether the other needs the same change.
-- If one language lacks confirmed content, do not call the site ready for a bilingual launch. The release audit blocks a missing language page or a missing switch between the languages; `--single-language` is for sites the client explicitly agreed to publish in one language.
+- Deliver exactly root index.html. Never create language folders or another page.
+- Default to Arabic with html lang="ar" dir="rtl" unless the client explicitly chooses otherwise. Treat Arabic as the primary review target, including typography, natural wording, punctuation, mobile navigation and search metadata.
+- Include all approved text for both languages directly in HTML, not remote JSON, machine translation or JavaScript-only strings. Each complete language container uses lang="ar" dir="rtl" or lang="en" dir="ltr" and a unique ID.
+- Provide real in-page anchors to each language container, labelled English and العربية, with matching lang attributes. These must work without JavaScript. An optional inline script may enhance this into a language toggle: hide only after initialization, update html lang/dir, translated accessible labels, title and description; support keyboard use and fragment/history navigation. Test both states. On script failure, both languages remain readable and linked.
+- Translate navigation, sections, footer, buttons, alt text and accessible labels. Do not switch only headings. Keep unique IDs across both versions; use one h1 and sensible subsequent headings.
+- Isolate phone numbers, emails and other LTR fragments using bdi or dir="ltr". Use CSS logical properties; never mirror logos or photos. Check long text on narrow screens.
+- Do not auto-redirect visitors based on location or browser language. Do not use browser storage by default.
+- Update both languages together when applying feedback; record genuinely missing translated content as pending. Missing language content or in-page links blocks release. --single-language requires explicit client agreement and never permits extra files.
+- Read seo.md for the indexing trade-off of one bilingual URL. Do not promise independent language indexing or add fake hreflang routes.
+
+Missing content: always ask staff in plain Arabic for the specific missing material. If they say no, unavailable or not needed, omit the whole affected item/section and its navigation in both languages, including dependent buttons and structured data fields. Never display missing/pending text, placeholder images, empty cards or coming-soon substitutes on the landing page, even during previews. Keep outstanding notes privately; do not repeat a question already declined. Essential launch blockers are discussed privately rather than filled with invented facts.

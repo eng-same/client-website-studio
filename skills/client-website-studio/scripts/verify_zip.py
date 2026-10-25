@@ -36,6 +36,8 @@ CSS_REF = re.compile(r'''url\(\s*["']?([^"')]+)''', re.I)
 def check_names(names: list[str]) -> list[str]:
     problems: list[str] = []
     files = [n for n in names if not n.endswith('/')]
+    if set(files) != {'index.html'}:
+        problems.append('A single-file website ZIP must contain only root index.html')
     if len(set(names)) != len(names):
         dupes = sorted({n for n in names if names.count(n) > 1})
         problems.append(f'The ZIP lists the same file twice: {", ".join(dupes[:5])}')

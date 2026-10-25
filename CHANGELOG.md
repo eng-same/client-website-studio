@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.0
+
+- Require a single self-contained root index.html for both languages and every runtime asset.
+- Block extra pages/files and external runtime dependencies in audit and ZIP verification.
+- Add automatic truthful client-specific search planning, metadata and structured data instructions.
+- Replace language-folder examples and fixtures with in-page bilingual content.
+
+
 Marketers always download the `main` branch. Existing client projects keep the version they started with until someone asks the agent to «حدّث العدّة».
 
 ## 3.0.0 — 2026-10-18

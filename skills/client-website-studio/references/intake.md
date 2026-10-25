@@ -30,10 +30,12 @@ Anything can arrive in `client/inbox/`: form exports, typed notes, WhatsApp scre
 ## Asking for gaps
 
 - Send the marketer one grouped, numbered list in plain Arabic that they can forward to the client on WhatsApp. Do not ask for anything the brief already answers.
-- Keep design work moving while optional facts are missing. In pages, mark unknown values only as `[[NEEDS: what is missing]]`.
+- Keep design work moving while optional facts are missing. Ask staff for the missing facts; if unavailable or declined, omit the affected items completely. Never put pending labels or placeholders on a preview or landing page.
 - If brand assets are missing, list them as a task for the marketing team. Do not create a logo or an identity. Until the logo arrives, show the company name as text.
 - Use customer language: "How should customers contact the company?", not "What is the CTA?"
 
 ## Fact sheet before release
 
 Before building the release ZIP, give the marketer a one-page summary of every fact that will be public, in each site language, as text or an image they can send to the client. When the client approves, record who approved, when and through which channel in `PROJECT-STATUS.md`, and ask the marketer to save the screenshot in `client/approvals/`.
+
+Missing content: always ask staff in plain Arabic for the specific missing material. If they say no, unavailable or not needed, omit the whole affected item/section and its navigation in both languages, including dependent buttons and structured data fields. Never display missing/pending text, placeholder images, empty cards or coming-soon substitutes on the landing page, even during previews. Keep outstanding notes privately; do not repeat a question already declined. Essential launch blockers are discussed privately rather than filled with invented facts.

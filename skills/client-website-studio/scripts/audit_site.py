@@ -4,8 +4,8 @@
 Reads source files; it is not a visual, accessibility or compliance test.
 
 Modes:
-  release (default)  [[NEEDS]] markers and noindex tags are errors.
-  preview            they are warnings, so work-in-progress previews can be built.
+  release (default)  unresolved markers, filler and noindex tags are errors.
+  preview            noindex is allowed; unresolved content is still blocked.
 
 Exit code 1 when any error is found.
 """
@@ -168,6 +168,11 @@ class Page(HTMLParser):
         self.anchors: list[dict] = []
         self.ids: Counter = Counter()
         self.lang = None
+        self.elements: list[tuple[str, dict]] = []
+        self.metadata: dict[str, str] = {}
+        self.structured_data = False
+        self.json_ld: list[str] = []
+        self._in_json_ld = False
         self.direction = None
         self.has_viewport = False
         self.noindex = False
@@ -182,6 +187,13 @@ class Page(HTMLParser):
     def handle_starttag(self, tag, attrs):
         d = {k: (v or '') for k, v in attrs}
         self.tags[tag] += 1
+        self.elements.append((tag, d))
+        if tag == 'meta':
+            self.metadata[d.get('name', d.get('property', '')).lower()] = d.get('content', '').strip()
+        if tag == 'script' and d.get('type') == 'application/ld+json':
+            self.structured_data = True
+            self.json_ld.append('')
+            self._in_json_ld = True
         if tag == 'html':
             self.lang = d.get('lang') or None
             self.direction = (d.get('dir') or '').lower() or None
@@ -231,6 +243,8 @@ class Page(HTMLParser):
                 self._skip_text -= 1
 
     def handle_endtag(self, tag):
+        if tag == 'script':
+            self._in_json_ld = False
         if tag in ('script', 'style', 'noscript', 'template') and self._skip_text:
             self._skip_text -= 1
         if tag == 'style':
@@ -241,6 +255,8 @@ class Page(HTMLParser):
                     break
 
     def handle_data(self, data):
+        if self._in_json_ld:
+            self.json_ld[-1] += data
         if self._in_style:
             self.styles.append(data)
         elif not self._skip_text:
@@ -465,9 +481,9 @@ def check_page(report: Report, file: Path) -> Page:
     visible = ' '.join(page.text + page.attr_text)
     markers = sorted(set(MARKER.findall(visible)))
     if markers:
-        report.by_mode(name, f'Unresolved [[…]] markers: {"; ".join(m[:60] for m in markers[:5])}')
+        report.error(name, f'Unresolved [[…]] markers: {"; ".join(m[:60] for m in markers[:5])}')
     if PLACEHOLDER.search(visible):
-        report.warn(name, f'Possible placeholder text: "{PLACEHOLDER.search(visible).group(0)}"')
+        report.error(name, f'Possible placeholder text: "{PLACEHOLDER.search(visible).group(0)}"')
     claim = BANK_CLAIM.search(visible)
     if claim:
         report.error(name, f'Central Bank compliance or approval claim is not allowed: "{claim.group(0)}"')
@@ -515,27 +531,66 @@ def check_root_page(report: Report, page: Page, data: str) -> None:
 
 
 def check_languages(report: Report, root: Path, pages: dict, single_language: bool) -> None:
-    by_lang: dict[str, tuple[str, Path]] = {}
-    for code in ('ar', 'en'):
-        path = root / code / 'index.html'
-        if path.is_file():
-            by_lang[code] = (f'{code}/index.html', path)
-        elif 'index.html' in pages and (pages['index.html'].lang or '').split('-')[0].lower() == code:
-            by_lang[code] = ('index.html', root / 'index.html')
-    if single_language:
+    page = pages.get('index.html')
+    if page is None or single_language:
         return
-    for code in ('ar', 'en'):
-        if code not in by_lang:
-            report.by_mode(f'{code}/index.html',
-                           'Language page is missing (needed for a bilingual site; pass --single-language only '
-                           'if the client agreed to one language)')
-    if len(by_lang) < 2:
+    for code, label, direction in (('ar', 'Arabic', 'rtl'), ('en', 'English', 'ltr')):
+        # A root lang attribute alone does not prove the translated content exists.
+        content = [attrs for tag, attrs in page.elements
+                   if tag in ('section', 'article', 'div') and attrs.get('lang') == code]
+        if not any(attrs.get('dir') == direction for attrs in content):
+            report.by_mode('index.html', f'{label} content is missing: include a lang="{code}" dir="{direction}" content container in index.html')
+        if not any(attrs.get('lang') == code and attrs.get('href', '').startswith('#')
+                   and attrs.get('href', '')[1:] in page.ids for attrs in page.anchors):
+            report.by_mode('index.html', f'No in-page link to the {label} content')
+
+
+def check_single_file(report: Report, root: Path, files: list[Path], pages: dict) -> None:
+    for file in files:
+        if rel(file, root) != 'index.html':
+            report.error(rel(file, root), 'The single-file website must contain only root index.html; embed all assets and both languages')
+    page = pages.get('index.html')
+    if page is None:
         return
-    names = {'ar': 'Arabic', 'en': 'English'}
-    for code, (name, path) in by_lang.items():
-        other = 'en' if code == 'ar' else 'ar'
-        if not links_to(pages[name], path, by_lang[other][1], root):
-            report.by_mode(name, f'No link to the {names[other]} page ({by_lang[other][0]})')
+    for tag, attrs in page.elements:
+        if attrs.get('srcset'):
+            report.error('index.html', 'Use one embedded src rather than srcset in a single-file website')
+        if tag in ('use', 'image'):
+            for key in ('href', 'xlink:href'):
+                value = attrs.get(key, '')
+                if value and not value.startswith(('#', 'data:')):
+                    report.error('index.html', 'SVG assets must be embedded, not external references')
+        for key in ('src', 'poster', 'data'):
+            if attrs.get(key) and not attrs[key].lower().startswith('data:'):
+                report.error('index.html', f'{tag} {key} must be embedded as a data URI (or inline SVG), not a separate resource')
+        if tag == 'link' and any(x in attrs.get('rel', '').lower().split()
+                                 for x in ('stylesheet', 'icon', 'preload', 'modulepreload', 'manifest')):
+            if not attrs.get('href', '').lower().startswith('data:'):
+                report.error('index.html', 'Styles, fonts and icons must be embedded in index.html')
+        if tag in ('iframe', 'embed', 'object'):
+            report.error('index.html', 'Embedded remote documents/widgets are not a self-contained website')
+        if tag == 'a':
+            path = urlsplit(attrs.get('href', '')).path
+            if path and not urlsplit(attrs.get('href', '')).scheme and not attrs.get('href', '').startswith('//'):
+                report.error('index.html', 'Use in-page anchors, not local pages or downloads')
+    for style in page.styles:
+        if re.search(r'@import\b', style, re.I):
+            report.error('index.html', 'CSS imports are not embedded; inline the styles')
+        for _, ref in CSS_URL.findall(style):
+            if not ref.strip().lower().startswith(('data:', '#')):
+                report.error('index.html', 'CSS assets must be embedded as data URIs')
+    for key in ('description', 'og:title', 'og:description'):
+        if not page.metadata.get(key):
+            report.by_mode('index.html', f'Missing search metadata: {key}')
+    for block in page.json_ld:
+        try:
+            value = json.loads(block)
+            if not isinstance(value, (dict, list)) or not value:
+                raise ValueError('expected a non-empty object or array')
+        except ValueError as exc:
+            report.by_mode('index.html', f'Invalid structured data JSON: {exc}')
+    if not page.structured_data:
+        report.by_mode('index.html', 'Missing business structured data (application/ld+json)')
 
 
 def check_duplicates_and_unused(report: Report, root: Path, files: list[Path], texts: dict[Path, str]) -> None:
@@ -588,6 +643,7 @@ def audit(root: Path, mode: str = 'release', single_language: bool = False) -> d
     if 'index.html' in pages:
         check_root_page(report, pages['index.html'], texts[root / 'index.html'])
     check_languages(report, root, pages, single_language)
+    check_single_file(report, root, files, pages)
     check_duplicates_and_unused(report, root, files, texts)
 
     for file in everything:
